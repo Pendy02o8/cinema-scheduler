@@ -16,4 +16,27 @@ public class EmployeeService {
     public List<Employee> getAllEmployees() {
         return employeeRepository.findAll();
     }
+
+    public Employee getEmplyeeById(Long id){
+        return employeeRepository.findById(id).orElseThrow(()->new RuntimeException("找不到員工"));
+    }
+
+    public Employee createEmployee(Employee employee){
+        return employeeRepository.save(employee);
+    }
+
+    public Employee updateEmployee(Long id,Employee newEmployee){
+        Employee employee = getEmplyeeById(id);
+
+        employee.setName(newEmployee.getName());
+        employee.setJobTitle(newEmployee.getJobTitle());
+        employee.setNote(newEmployee.getNote());
+        employee.setIsActive(newEmployee.getIsActive());
+
+        return employeeRepository.save(employee);
+    }
+
+    public void deleteEmployee(Long id){
+        employeeRepository.deleteById(id);
+    }
 }

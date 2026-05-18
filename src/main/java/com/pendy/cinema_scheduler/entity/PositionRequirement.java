@@ -1,5 +1,6 @@
 package com.pendy.cinema_scheduler.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -16,6 +17,7 @@ public class PositionRequirement {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Long id;
 
     @ManyToOne
@@ -38,5 +40,6 @@ public class PositionRequirement {
     private Integer requiredCount;
 
     @Column(name = "created_at")
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private LocalDateTime createdAt;
 }
