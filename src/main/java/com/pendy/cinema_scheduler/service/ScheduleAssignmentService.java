@@ -5,6 +5,7 @@ import com.pendy.cinema_scheduler.repository.ScheduleAssignmentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -15,5 +16,44 @@ public class ScheduleAssignmentService {
 
     public List<ScheduleAssignment> getAllScheduleAssignments() {
         return scheduleAssignmentRepository.findAll();
+    }
+
+    public ScheduleAssignment getScheduleAssignmentById(Long id) {
+        return scheduleAssignmentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("找不到排班資料"));
+    }
+
+    public ScheduleAssignment createScheduleAssignment(ScheduleAssignment scheduleAssignment) {
+        return scheduleAssignmentRepository.save(scheduleAssignment);
+    }
+
+    public ScheduleAssignment updateScheduleAssignment(Long id, ScheduleAssignment newScheduleAssignment) {
+        ScheduleAssignment scheduleAssignment = getScheduleAssignmentById(id);
+
+        scheduleAssignment.setWeeklySchedule(newScheduleAssignment.getWeeklySchedule());
+        scheduleAssignment.setEmployee(newScheduleAssignment.getEmployee());
+        scheduleAssignment.setPosition(newScheduleAssignment.getPosition());
+        scheduleAssignment.setDate(newScheduleAssignment.getDate());
+        scheduleAssignment.setStartTime(newScheduleAssignment.getStartTime());
+        scheduleAssignment.setEndTime(newScheduleAssignment.getEndTime());
+        scheduleAssignment.setNote(newScheduleAssignment.getNote());
+
+        return scheduleAssignmentRepository.save(scheduleAssignment);
+    }
+
+    public void deleteScheduleAssignment(Long id) {
+        scheduleAssignmentRepository.deleteById(id);
+    }
+
+    public List<ScheduleAssignment> getScheduleAssignmentsByDate(LocalDate date) {
+        return scheduleAssignmentRepository.findByDate(date);
+    }
+
+    public List<ScheduleAssignment> getScheduleAssignmentsByEmployeeId(Long employeeId) {
+        return scheduleAssignmentRepository.findByEmployeeId(employeeId);
+    }
+
+    public List<ScheduleAssignment> getScheduleAssignmentsByPositionId(Long positionId) {
+        return scheduleAssignmentRepository.findByPositionId(positionId);
     }
 }
