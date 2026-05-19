@@ -1,6 +1,6 @@
 package com.pendy.cinema_scheduler.service;
 
-import com.pendy.cinema_scheduler.entity.Positions;
+import com.pendy.cinema_scheduler.entity.Position;
 import com.pendy.cinema_scheduler.repository.PositionsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -13,7 +13,7 @@ public class PositionsService{
 
     private final PositionsRepository positionsRepository;
 
-    public List<Positions> getAllPositions(){
+    public List<Position> getAllPositions(){
         return positionsRepository.findAll();
     }
 }

@@ -1,6 +1,6 @@
 package com.pendy.cinema_scheduler.controller;
 
-import com.pendy.cinema_scheduler.entity.Positions;
+import com.pendy.cinema_scheduler.entity.Position;
 import com.pendy.cinema_scheduler.service.PositionsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -14,7 +14,7 @@ public class PositionsController {
     private final PositionsService positionsService;
 
     @GetMapping
-    public List<Positions> getAllPositions(){
+    public List<Position> getAllPositions(){
         return positionsService.getAllPositions();
     }
 }

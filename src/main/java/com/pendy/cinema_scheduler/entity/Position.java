@@ -11,11 +11,10 @@ import java.time.LocalDateTime;
 @Setter
 @Entity
 @Table(name = "positions")
-public class Positions {
+public class Position {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Long id;
 
     private String name;

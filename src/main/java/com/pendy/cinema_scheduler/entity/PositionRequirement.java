@@ -34,7 +34,7 @@ public class PositionRequirement {
 
     @ManyToOne
     @JoinColumn(name = "position_id")
-    private Positions position;
+    private Position position;
 
     @Column(name = "required_count")
     private Integer requiredCount;
