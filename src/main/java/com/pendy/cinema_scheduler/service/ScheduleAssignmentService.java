@@ -24,6 +24,14 @@ public class ScheduleAssignmentService {
     }
 
     public ScheduleAssignment createScheduleAssignment(ScheduleAssignment scheduleAssignment) {
+        Long employeeId = scheduleAssignment.getEmployee().getId();
+
+        List<ScheduleAssignment> conflicts = scheduleAssignmentRepository.findByEmployee_IdAndDateAndStartTimeLessThanAndEndTimeGreaterThan(
+                employeeId,scheduleAssignment.getDate(),scheduleAssignment.getEndTime(),scheduleAssignment.getStartTime());
+
+        if(!conflicts.isEmpty()){
+            throw new RuntimeException("此員工在該時段已有排班，不能重複排班");
+        }
         return scheduleAssignmentRepository.save(scheduleAssignment);
     }
 

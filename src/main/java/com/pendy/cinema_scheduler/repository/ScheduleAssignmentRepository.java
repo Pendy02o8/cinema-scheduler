@@ -4,10 +4,17 @@ import com.pendy.cinema_scheduler.entity.ScheduleAssignment;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 public interface ScheduleAssignmentRepository extends JpaRepository<ScheduleAssignment, Long> {
     List<ScheduleAssignment> findByDate(LocalDate date);
     List<ScheduleAssignment> findByEmployeeId(Long employeeId);
     List<ScheduleAssignment> findByPositionId(Long positionId);
+    List<ScheduleAssignment> findByEmployee_IdAndDateAndStartTimeLessThanAndEndTimeGreaterThan(
+            Long employeeId,
+            LocalDate date,
+            LocalTime endTime,
+            LocalTime startTime
+    );
 }
