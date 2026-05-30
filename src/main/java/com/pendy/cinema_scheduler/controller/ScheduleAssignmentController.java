@@ -58,4 +58,9 @@ public class ScheduleAssignmentController {
     public List<ScheduleAssignment> getScheduleAssignmentsByPositionId(@PathVariable Long positionId) {
         return scheduleAssignmentService.getScheduleAssignmentsByPositionId(positionId);
     }
+
+    @GetMapping("/check-gaps/{date}")
+    public List<String> checkGaps(@PathVariable LocalDate date) {
+        return scheduleAssignmentService.checkGaps(date);
+    }
 }

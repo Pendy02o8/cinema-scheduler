@@ -17,4 +17,8 @@ public interface ScheduleAssignmentRepository extends JpaRepository<ScheduleAssi
             LocalTime endTime,
             LocalTime startTime
     );
+    List<ScheduleAssignment> findByDateAndPosition_Id(
+            LocalDate date,
+            Long positionId
+    );
 }

@@ -6,8 +6,12 @@ import com.pendy.cinema_scheduler.repository.AvailabilityRepository;
 import com.pendy.cinema_scheduler.repository.ScheduleAssignmentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.pendy.cinema_scheduler.entity.PositionRequirement;
+import com.pendy.cinema_scheduler.repository.PositionRequirementRepository;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -16,6 +20,7 @@ public class ScheduleAssignmentService {
 
     private final ScheduleAssignmentRepository scheduleAssignmentRepository;
     private final AvailabilityRepository availabilityRepository;
+    private final PositionRequirementRepository positionRequirementRepository;
 
     public List<ScheduleAssignment> getAllScheduleAssignments() {
         return scheduleAssignmentRepository.findAll();
@@ -56,6 +61,74 @@ public class ScheduleAssignmentService {
             }
         }
         return scheduleAssignmentRepository.save(scheduleAssignment);
+    }
+
+    public List<String> checkGaps(LocalDate date) {
+
+        List<String> result = new ArrayList<>();
+
+        List<PositionRequirement> requirements =
+                positionRequirementRepository.findByDate(date);
+
+        for (PositionRequirement requirement : requirements) {
+
+            Long positionId = requirement.getPosition().getId();
+
+            List<ScheduleAssignment> assignments =
+                    scheduleAssignmentRepository.findByDateAndPosition_Id(
+                            date,
+                            positionId
+                    );
+
+            LocalTime gapStart = null;
+            LocalTime current = requirement.getStartTime();
+
+            while (current.isBefore(requirement.getEndTime())) {
+
+                LocalTime next = current.plusMinutes(10);
+
+                LocalTime finalCurrent = current;
+                long assignedCount = assignments.stream()
+                        .filter(assignment ->
+                                assignment.getStartTime().isBefore(next)
+                                        && assignment.getEndTime().isAfter(finalCurrent)
+                        )
+                        .count();
+
+                boolean isGap = assignedCount < requirement.getRequiredCount();
+
+                if (isGap && gapStart == null) {
+                    gapStart = current;
+                }
+
+                if (!isGap && gapStart != null) {
+                    result.add(
+                            requirement.getPosition().getName()
+                                    + " "
+                                    + gapStart
+                                    + "~"
+                                    + current
+                                    + " 缺人 "
+                    );
+                    gapStart = null;
+                }
+
+                current = next;
+            }
+
+            if (gapStart != null) {
+                result.add(
+                        requirement.getPosition().getName()
+                                + " "
+                                + gapStart
+                                + "~"
+                                + requirement.getEndTime()
+                                + " 缺人"
+                );
+            }
+        }
+
+        return result;
     }
 
     public ScheduleAssignment updateScheduleAssignment(Long id, ScheduleAssignment newScheduleAssignment) {
