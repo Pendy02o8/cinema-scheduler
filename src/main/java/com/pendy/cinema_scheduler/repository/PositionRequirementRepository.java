@@ -7,6 +7,6 @@ import java.util.List;
 import java.time.LocalDate;
 
 public interface PositionRequirementRepository extends JpaRepository<PositionRequirement, Long> {
-    List<PositionRequirement> findByDate(LocalDate date);
+    List<PositionRequirement> findAll();
     List<PositionRequirement> findByPositionId(Long positionId);
 }

@@ -36,8 +36,6 @@ public class PositionRequirementService {
     public PositionRequirement updatePositionRequirement(Long id,PositionRequirement newPositionRequirement){
         PositionRequirement positionRequirement = getPositionRequirementById(id);
 
-        positionRequirement.setWeeklySchedule(newPositionRequirement.getWeeklySchedule());
-        positionRequirement.setDate(newPositionRequirement.getDate());
         positionRequirement.setStartTime(newPositionRequirement.getStartTime());
         positionRequirement.setEndTime(newPositionRequirement.getEndTime());
         positionRequirement.setPosition(newPositionRequirement.getPosition());
@@ -48,10 +46,6 @@ public class PositionRequirementService {
 
     public void deletePositionRequirement(Long id){
         positionRequirementRepository.deleteById(id);
-    }
-
-    public List<PositionRequirement> getPositionRequirementByDate(LocalDate date){
-        return positionRequirementRepository.findByDate(date);
     }
 
     public List<PositionRequirement> getPositionRequirementByPositionId(Long positionId){

@@ -5,7 +5,6 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
@@ -19,12 +18,6 @@ public class PositionRequirement {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Long id;
-
-    @ManyToOne
-    @JoinColumn(name = "weekly_schedule_id")
-    private WeeklySchedule weeklySchedule;
-
-    private LocalDate date;
 
     @Column(name = "start_time")
     private LocalTime startTime;

@@ -68,7 +68,7 @@ public class ScheduleAssignmentService {
         List<String> result = new ArrayList<>();
 
         List<PositionRequirement> requirements =
-                positionRequirementRepository.findByDate(date);
+                positionRequirementRepository.findAll();
 
         for (PositionRequirement requirement : requirements) {
 

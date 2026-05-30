@@ -42,11 +42,6 @@ public class PositionRequirementController {
         return "刪除成功";
     }
 
-    @GetMapping("/date/{date}")
-    public List<PositionRequirement> getPositionRequirementByDate(@PathVariable LocalDate date){
-        return positionRequirementService.getPositionRequirementByDate(date);
-    }
-
     @GetMapping("/position/{positionId}")
     public List<PositionRequirement> getPositionRequirementByPositionId(@PathVariable Long positionId){
         return positionRequirementService.getPositionRequirementByPositionId(positionId);
