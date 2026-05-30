@@ -43,6 +43,6 @@ public class AvailabilityService {
     }
 
     public List<Availability> getAvailabilityByEmployeeId(Long employeeId){
-        return availabilityRepository.findByEmployeeId(employeeId);
+        return availabilityRepository.findByEmployee_Id(employeeId);
     }
 }

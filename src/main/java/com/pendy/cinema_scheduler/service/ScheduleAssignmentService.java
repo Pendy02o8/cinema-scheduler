@@ -1,6 +1,8 @@
 package com.pendy.cinema_scheduler.service;
 
+import com.pendy.cinema_scheduler.entity.Availability;
 import com.pendy.cinema_scheduler.entity.ScheduleAssignment;
+import com.pendy.cinema_scheduler.repository.AvailabilityRepository;
 import com.pendy.cinema_scheduler.repository.ScheduleAssignmentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -13,6 +15,7 @@ import java.util.List;
 public class ScheduleAssignmentService {
 
     private final ScheduleAssignmentRepository scheduleAssignmentRepository;
+    private final AvailabilityRepository availabilityRepository;
 
     public List<ScheduleAssignment> getAllScheduleAssignments() {
         return scheduleAssignmentRepository.findAll();
@@ -24,6 +27,7 @@ public class ScheduleAssignmentService {
     }
 
     public ScheduleAssignment createScheduleAssignment(ScheduleAssignment scheduleAssignment) {
+        //檢查排班衝突(同一位員工有無重複排班)
         Long employeeId = scheduleAssignment.getEmployee().getId();
 
         List<ScheduleAssignment> conflicts = scheduleAssignmentRepository.findByEmployee_IdAndDateAndStartTimeLessThanAndEndTimeGreaterThan(
@@ -31,6 +35,25 @@ public class ScheduleAssignmentService {
 
         if(!conflicts.isEmpty()){
             throw new RuntimeException("此員工在該時段已有排班，不能重複排班");
+        }
+
+        //檢查排班衝突(該員工該時段是否可排班)
+        List<Availability> availabilities = availabilityRepository.findByEmployee_IdAndDate(employeeId,scheduleAssignment.getDate());
+
+        Availability availability = availabilities.get(0);
+        if("OFF".equals(availability.getAvailabilityType())){
+            throw new RuntimeException("此員工當天休假，不能排班");
+        }
+        if("AFTER".equals(availability.getAvailabilityType())){
+            if (scheduleAssignment.getStartTime().isBefore(availability.getBoundaryTime())){
+                throw new RuntimeException("此員工只能在"+availability.getBoundaryTime()+"之後上班");
+            }
+        }
+
+        if("BEFORE".equals(availability.getAvailabilityType())){
+            if (scheduleAssignment.getEndTime().isAfter(availability.getBoundaryTime())){
+                throw new RuntimeException("此員工只能在"+availability.getBoundaryTime()+"之前上班");
+            }
         }
         return scheduleAssignmentRepository.save(scheduleAssignment);
     }
