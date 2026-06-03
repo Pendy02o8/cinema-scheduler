@@ -62,7 +62,7 @@ public class ScheduleAssignmentService {
         }
         return scheduleAssignmentRepository.save(scheduleAssignment);
     }
-
+    //檢查所有崗位在何時段是否缺人
     public List<String> checkGaps(LocalDate date) {
 
         List<String> result = new ArrayList<>();
@@ -130,7 +130,86 @@ public class ScheduleAssignmentService {
 
         return result;
     }
+    //檢查已排崗位是否有超編
+    public List<String> checkOverstaffed(LocalDate date) {
 
+        List<String> result = new ArrayList<>();
+
+        List<PositionRequirement> requirements =
+                positionRequirementRepository.findAll();
+
+        for (PositionRequirement requirement : requirements) {
+
+            Long positionId = requirement.getPosition().getId();
+
+            List<ScheduleAssignment> assignments =
+                    scheduleAssignmentRepository.findByDateAndPosition_Id(
+                            date,
+                            positionId
+                    );
+
+            LocalTime overStart = null;
+            LocalTime current = requirement.getStartTime();
+            long maxOverAssignedCount = 0;
+
+            while (current.isBefore(requirement.getEndTime())) {
+
+                LocalTime next = current.plusMinutes(10);
+
+                LocalTime finalCurrent = current;
+                long assignedCount = assignments.stream()
+                        .filter(assignment ->
+                                assignment.getStartTime().isBefore(next)
+                                        && assignment.getEndTime().isAfter(finalCurrent)
+                        )
+                        .count();
+
+                boolean isOverstaffed =
+                        assignedCount > requirement.getRequiredCount();
+
+                if (isOverstaffed) {
+                    maxOverAssignedCount = Math.max(maxOverAssignedCount, assignedCount);
+                }
+
+                if (isOverstaffed && overStart == null) {
+                    overStart = current;
+                }
+
+                if (!isOverstaffed && overStart != null) {
+                    result.add(
+                            requirement.getPosition().getName()
+                                    + " "
+                                    + overStart
+                                    + "~"
+                                    + current
+                                    + " 超編 "
+                                    + (maxOverAssignedCount - requirement.getRequiredCount())
+                                    + " 人"
+                    );
+
+                    overStart = null;
+                    maxOverAssignedCount = 0;
+                }
+
+                current = next;
+            }
+
+            if (overStart != null) {
+                result.add(
+                        requirement.getPosition().getName()
+                                + " "
+                                + overStart
+                                + "~"
+                                + requirement.getEndTime()
+                                + " 超編 "
+                                + (maxOverAssignedCount - requirement.getRequiredCount())
+                                + " 人"
+                );
+            }
+        }
+
+        return result;
+    }
     public ScheduleAssignment updateScheduleAssignment(Long id, ScheduleAssignment newScheduleAssignment) {
         ScheduleAssignment scheduleAssignment = getScheduleAssignmentById(id);
 

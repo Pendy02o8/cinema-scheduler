@@ -63,4 +63,9 @@ public class ScheduleAssignmentController {
     public List<String> checkGaps(@PathVariable LocalDate date) {
         return scheduleAssignmentService.checkGaps(date);
     }
+
+    @GetMapping("/check-overstaffed/{date}")
+    public List<String> checkOverstaffed(@PathVariable LocalDate date) {
+        return scheduleAssignmentService.checkOverstaffed(date);
+    }
 }
