@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import com.pendy.cinema_scheduler.entity.PositionRequirement;
 import com.pendy.cinema_scheduler.repository.PositionRequirementRepository;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -209,6 +210,64 @@ public class ScheduleAssignmentService {
         }
 
         return result;
+    }
+    // 工時計算
+    public String getEmployeeWorkHours(
+            Long employeeId,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        List<ScheduleAssignment> assignments =
+                scheduleAssignmentRepository.findByEmployee_IdAndDateBetween(
+                        employeeId,
+                        startDate,
+                        endDate
+                );
+
+        if (assignments.isEmpty()) {
+            return "此員工在指定日期區間沒有排班";
+        }
+
+        double totalHours = 0;
+        String employeeName = "";
+
+        for (ScheduleAssignment assignment : assignments) {
+            totalHours += calculatePaidHours(assignment);
+            employeeName = assignment.getEmployee().getName();
+        }
+
+        return employeeName
+                + " "
+                + startDate
+                + "~"
+                + endDate
+                + " 工時："
+                + formatHours(totalHours);
+    }
+
+    private double calculatePaidHours(ScheduleAssignment assignment) {
+        long minutes = Duration.between(
+                assignment.getStartTime(),
+                assignment.getEndTime()
+        ).toMinutes();
+
+        // 上班滿4小時，扣30分鐘休息
+        if (minutes >= 240) {
+            minutes -= 30;
+        }
+
+        // 以半小時為單位，無條件捨去
+        long halfHourUnits = minutes / 30;
+
+        return halfHourUnits * 0.5;
+    }
+
+    private String formatHours(double hours) {
+        if (hours == (long) hours) {
+            return String.format("%d小時", (long) hours);
+        }
+
+        return String.format("%.1f小時", hours);
     }
     public ScheduleAssignment updateScheduleAssignment(Long id, ScheduleAssignment newScheduleAssignment) {
         ScheduleAssignment scheduleAssignment = getScheduleAssignmentById(id);

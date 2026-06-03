@@ -68,4 +68,9 @@ public class ScheduleAssignmentController {
     public List<String> checkOverstaffed(@PathVariable LocalDate date) {
         return scheduleAssignmentService.checkOverstaffed(date);
     }
+
+    @GetMapping("/work-hours/employee/{employeeId}")
+    public String getEmployeeWorkHours( @PathVariable Long employeeId, @RequestParam LocalDate startDate,@RequestParam LocalDate endDate) {
+        return scheduleAssignmentService.getEmployeeWorkHours(employeeId, startDate,endDate);
+    }
 }
