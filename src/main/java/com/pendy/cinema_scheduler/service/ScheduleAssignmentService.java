@@ -343,6 +343,34 @@ public class ScheduleAssignmentService {
 
         return result;
     }
+    //查某週班表是否缺人/超編
+    public List<String> checkScheduleByWeek(
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        List<String> result = new ArrayList<>();
+
+        LocalDate currentDate = startDate;
+
+        while (!currentDate.isAfter(endDate)) {
+
+            List<String> dailyResult = checkSchedule(currentDate);
+
+            for (String message : dailyResult) {
+                if (!message.equals("此日班表無缺人或超編問題")) {
+                    result.add(currentDate + " " + message);
+                }
+            }
+
+            currentDate = currentDate.plusDays(1);
+        }
+
+        if (result.isEmpty()) {
+            result.add("此週班表無缺人或超編問題");
+        }
+
+        return result;
+    }
     //查某週班表
     public List<ScheduleAssignment> getScheduleAssignmentsByWeek(
             LocalDate startDate,
