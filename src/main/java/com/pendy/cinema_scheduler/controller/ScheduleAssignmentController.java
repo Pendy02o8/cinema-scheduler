@@ -83,4 +83,8 @@ public class ScheduleAssignmentController {
                 endDate
         );
     }
+    @GetMapping("/check-schedule/{date}")
+    public List<String> checkSchedule(@PathVariable LocalDate date) {
+        return scheduleAssignmentService.checkSchedule(date);
+    }
 }

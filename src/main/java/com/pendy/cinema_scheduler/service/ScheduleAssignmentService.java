@@ -321,6 +321,28 @@ public class ScheduleAssignmentService {
 
         return scheduleAssignmentRepository.save(scheduleAssignment);
     }
+    //列出某日是否有缺人or超編
+    public List<String> checkSchedule(LocalDate date) {
+
+        List<String> result = new ArrayList<>();
+
+        List<String> gaps = checkGaps(date);
+        List<String> overstaffed = checkOverstaffed(date);
+
+        for (String gap : gaps) {
+            result.add("缺人：" + gap);
+        }
+
+        for (String over : overstaffed) {
+            result.add("超編：" + over);
+        }
+
+        if (result.isEmpty()) {
+            result.add("此日班表無缺人或超編問題");
+        }
+
+        return result;
+    }
 
     public void deleteScheduleAssignment(Long id) {
         scheduleAssignmentRepository.deleteById(id);
