@@ -269,6 +269,45 @@ public class ScheduleAssignmentService {
 
         return String.format("%.1f小時", hours);
     }
+    //查全部員工工時
+    public List<String> getAllEmployeesWorkHours(
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        List<ScheduleAssignment> assignments =
+                scheduleAssignmentRepository.findByDateBetween(
+                        startDate,
+                        endDate
+                );
+
+        List<String> result = new ArrayList<>();
+
+        List<Long> employeeIds = new ArrayList<>();
+
+        for (ScheduleAssignment assignment : assignments) {
+            Long employeeId = assignment.getEmployee().getId();
+
+            if (!employeeIds.contains(employeeId)) {
+                employeeIds.add(employeeId);
+            }
+        }
+
+        for (Long employeeId : employeeIds) {
+            double totalHours = 0;
+            String employeeName = "";
+
+            for (ScheduleAssignment assignment : assignments) {
+                if (assignment.getEmployee().getId().equals(employeeId)) {
+                    totalHours += calculatePaidHours(assignment);
+                    employeeName = assignment.getEmployee().getName();
+                }
+            }
+
+            result.add(employeeName + "：" + formatHours(totalHours));
+        }
+
+        return result;
+    }
     public ScheduleAssignment updateScheduleAssignment(Long id, ScheduleAssignment newScheduleAssignment) {
         ScheduleAssignment scheduleAssignment = getScheduleAssignmentById(id);
 

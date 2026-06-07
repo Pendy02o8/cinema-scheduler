@@ -73,4 +73,14 @@ public class ScheduleAssignmentController {
     public String getEmployeeWorkHours( @PathVariable Long employeeId, @RequestParam LocalDate startDate,@RequestParam LocalDate endDate) {
         return scheduleAssignmentService.getEmployeeWorkHours(employeeId, startDate,endDate);
     }
+    @GetMapping("/work-hours/all")
+    public List<String> getAllEmployeesWorkHours(
+            @RequestParam LocalDate startDate,
+            @RequestParam LocalDate endDate
+    ) {
+        return scheduleAssignmentService.getAllEmployeesWorkHours(
+                startDate,
+                endDate
+        );
+    }
 }
