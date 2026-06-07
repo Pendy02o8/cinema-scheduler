@@ -343,6 +343,16 @@ public class ScheduleAssignmentService {
 
         return result;
     }
+    //查某週班表
+    public List<ScheduleAssignment> getScheduleAssignmentsByWeek(
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        return scheduleAssignmentRepository.findByDateBetween(
+                startDate,
+                endDate
+        );
+    }
 
     public void deleteScheduleAssignment(Long id) {
         scheduleAssignmentRepository.deleteById(id);

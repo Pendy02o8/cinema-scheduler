@@ -87,4 +87,14 @@ public class ScheduleAssignmentController {
     public List<String> checkSchedule(@PathVariable LocalDate date) {
         return scheduleAssignmentService.checkSchedule(date);
     }
+    @GetMapping("/week")
+    public List<ScheduleAssignment> getScheduleAssignmentsByWeek(
+            @RequestParam LocalDate startDate,
+            @RequestParam LocalDate endDate
+    ) {
+        return scheduleAssignmentService.getScheduleAssignmentsByWeek(
+                startDate,
+                endDate
+        );
+    }
 }
