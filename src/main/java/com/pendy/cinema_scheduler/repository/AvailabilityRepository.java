@@ -13,4 +13,5 @@ public interface AvailabilityRepository extends JpaRepository<Availability, Long
             Long employeeId,
             LocalDate date
     );
+    void deleteByWeeklySchedule_Id(Long weeklyScheduleId);
 }

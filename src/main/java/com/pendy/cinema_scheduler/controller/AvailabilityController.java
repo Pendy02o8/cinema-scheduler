@@ -4,6 +4,7 @@ import com.pendy.cinema_scheduler.entity.Availability;
 import com.pendy.cinema_scheduler.service.AvailabilityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.security.PublicKey;
 import java.util.List;
@@ -45,5 +46,14 @@ public class AvailabilityController {
     @GetMapping("/employee/{employeeId}")
     public List<Availability> getAvailabityByEmployeeId(@PathVariable Long employeeId){
         return availabilityService.getAvailabilityByEmployeeId(employeeId);
+    }
+
+    @PostMapping(value = "/import", consumes = "multipart/form-data")
+    public String importAvailability(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("weeklyScheduleId") Long weeklyScheduleId
+    ) {
+        int count = availabilityService.importFromExcel(file, weeklyScheduleId);
+        return "匯入成功，共新增 " + count + " 筆 Availability";
     }
 }
