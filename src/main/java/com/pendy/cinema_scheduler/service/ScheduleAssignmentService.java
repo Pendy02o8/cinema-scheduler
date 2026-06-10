@@ -9,11 +9,14 @@ import org.springframework.stereotype.Service;
 import com.pendy.cinema_scheduler.entity.PositionRequirement;
 import com.pendy.cinema_scheduler.repository.WeeklyScheduleRepository;
 import com.pendy.cinema_scheduler.entity.WeeklySchedule;
+import com.pendy.cinema_scheduler.dto.ScheduleAssignmentResponse;
+import com.pendy.cinema_scheduler.dto.ScheduleValidationResponse;
 
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -36,7 +39,7 @@ public class ScheduleAssignmentService {
                 .orElseThrow(() -> new RuntimeException("找不到排班資料"));
     }
 
-    public ScheduleAssignment createScheduleAssignment(ScheduleAssignment scheduleAssignment) {
+    public ScheduleAssignmentResponse createScheduleAssignment(ScheduleAssignment scheduleAssignment) {
 
         Long employeeId = scheduleAssignment.getEmployee().getId();
 
@@ -62,6 +65,7 @@ public class ScheduleAssignmentService {
         scheduleAssignment.setEmployee(employee);
 
         // 2. 工讀生：照availability
+        String warningMessage = null;
         if ("PART_TIME".equals(employeeType)) {
 
             List<Availability> availabilities =
@@ -80,17 +84,7 @@ public class ScheduleAssignmentService {
                 throw new RuntimeException("此員工當天休假，不能排班");
             }
 
-            if ("AFTER".equals(availability.getAvailabilityType())) {
-                if (scheduleAssignment.getStartTime().isBefore(availability.getBoundaryTime())) {
-                    throw new RuntimeException("此員工只能在 " + availability.getBoundaryTime() + " 之後上班");
-                }
-            }
 
-            if ("BEFORE".equals(availability.getAvailabilityType())) {
-                if (scheduleAssignment.getEndTime().isAfter(availability.getBoundaryTime())) {
-                    throw new RuntimeException("此員工只能在 " + availability.getBoundaryTime() + " 之前上班");
-                }
-            }
         }
 
         // 3. 正職 / 清潔：不看 availability，只看 monthly_leaves
@@ -126,8 +120,64 @@ public class ScheduleAssignmentService {
         if (!noPositionRequired && scheduleAssignment.getPosition() == null) {
             throw new RuntimeException("此職稱需要選擇崗位");
         }
-        return scheduleAssignmentRepository.save(scheduleAssignment);
+        ScheduleAssignment saved = scheduleAssignmentRepository.save(scheduleAssignment);
+
+        return new ScheduleAssignmentResponse(saved, Collections.singletonList(warningMessage));
     }
+    //檢查排班衝突警告
+    public ScheduleValidationResponse validateScheduleAssignment(
+            ScheduleAssignment scheduleAssignment
+    ) {
+        List<String> warnings = new ArrayList<>();
+
+        Long employeeId = scheduleAssignment.getEmployee().getId();
+
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new RuntimeException("找不到員工 id: " + employeeId));
+
+        if (!"PART_TIME".equals(employee.getEmployeeType())) {
+            return new ScheduleValidationResponse(warnings);
+        }
+
+        List<Availability> availabilities =
+                availabilityRepository.findByEmployee_IdAndDate(
+                        employeeId,
+                        scheduleAssignment.getDate()
+                );
+
+        if (availabilities.isEmpty()) {
+            throw new RuntimeException("此工讀生當天沒有填寫可上班時間，不能排班");
+        }
+
+        Availability availability = availabilities.get(0);
+
+        if ("OFF".equals(availability.getAvailabilityType())) {
+            throw new RuntimeException("此員工當天休假，不能排班");
+        }
+
+        if ("AFTER".equals(availability.getAvailabilityType())) {
+            if (scheduleAssignment.getStartTime().isBefore(availability.getBoundaryTime())) {
+                warnings.add(
+                        "此員工原本只能在 "
+                                + availability.getBoundaryTime()
+                                + " 之後上班，但本次排班早於可上班時間"
+                );
+            }
+        }
+
+        if ("BEFORE".equals(availability.getAvailabilityType())) {
+            if (scheduleAssignment.getEndTime().isAfter(availability.getBoundaryTime())) {
+                warnings.add(
+                        "此員工原本只能在 "
+                                + availability.getBoundaryTime()
+                                + " 之前上班，但本次排班晚於可上班時間"
+                );
+            }
+        }
+
+        return new ScheduleValidationResponse(warnings);
+    }
+
     //產生正職固定班
     public List<ScheduleAssignment> generateFixedSchedule(
             Long weeklyScheduleId,

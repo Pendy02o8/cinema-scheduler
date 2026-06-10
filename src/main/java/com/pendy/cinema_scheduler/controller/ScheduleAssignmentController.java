@@ -1,5 +1,7 @@
 package com.pendy.cinema_scheduler.controller;
 
+import com.pendy.cinema_scheduler.dto.ScheduleAssignmentResponse;
+import com.pendy.cinema_scheduler.dto.ScheduleValidationResponse;
 import com.pendy.cinema_scheduler.entity.ScheduleAssignment;
 import com.pendy.cinema_scheduler.service.ScheduleAssignmentService;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +28,9 @@ public class ScheduleAssignmentController {
     }
 
     @PostMapping
-    public ScheduleAssignment createScheduleAssignment(@RequestBody ScheduleAssignment scheduleAssignment) {
+    public ScheduleAssignmentResponse createScheduleAssignment(
+            @RequestBody ScheduleAssignment scheduleAssignment
+    ) {
         return scheduleAssignmentService.createScheduleAssignment(scheduleAssignment);
     }
 
@@ -118,5 +122,11 @@ public class ScheduleAssignmentController {
                 startDate,
                 endDate
         );
+    }
+    @PostMapping("/validate")
+    public ScheduleValidationResponse validateScheduleAssignment(
+            @RequestBody ScheduleAssignment scheduleAssignment
+    ) {
+        return scheduleAssignmentService.validateScheduleAssignment(scheduleAssignment);
     }
 }
