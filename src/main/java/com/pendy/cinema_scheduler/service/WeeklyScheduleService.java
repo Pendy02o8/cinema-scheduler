@@ -1,11 +1,13 @@
 package com.pendy.cinema_scheduler.service;
 
 import com.pendy.cinema_scheduler.entity.WeeklySchedule;
+import com.pendy.cinema_scheduler.repository.AvailabilityRepository;
 import com.pendy.cinema_scheduler.repository.ScheduleAssignmentRepository;
 import com.pendy.cinema_scheduler.repository.WeeklyScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import jakarta.transaction.Transactional;
+import com.pendy.cinema_scheduler.repository.BusinessHourRepository;
 
 import java.util.List;
 
@@ -15,6 +17,8 @@ public class WeeklyScheduleService {
 
     private final WeeklyScheduleRepository weeklyScheduleRepository;
     private final ScheduleAssignmentRepository scheduleAssignmentRepository;
+    private final AvailabilityRepository availabilityRepository;
+    private final BusinessHourRepository businessHourRepository;
 
     public List<WeeklySchedule> getAllWeeklySchedules() {
         return weeklyScheduleRepository.findAll();
@@ -44,6 +48,8 @@ public class WeeklyScheduleService {
     @Transactional
     public void deleteWeeklySchedule(Long id) {
         scheduleAssignmentRepository.deleteByWeeklySchedule_Id(id);
+        availabilityRepository.deleteByWeeklySchedule_Id(id);
+        businessHourRepository.deleteByWeeklySchedule_Id(id);
         weeklyScheduleRepository.deleteById(id);
     }
 }
