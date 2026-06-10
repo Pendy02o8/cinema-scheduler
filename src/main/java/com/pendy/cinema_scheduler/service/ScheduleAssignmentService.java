@@ -188,7 +188,6 @@ public class ScheduleAssignmentService {
                     }
                 }
 
-                assignment.setNote("固定班");
 
                 List<ScheduleAssignment> conflicts =
                         scheduleAssignmentRepository
@@ -213,6 +212,35 @@ public class ScheduleAssignmentService {
         }
 
         return createdAssignments;
+    }
+    private int toMinutes(LocalTime time) {
+        return time.getHour() * 60 + time.getMinute();
+    }
+
+    private boolean overlapsTimeSlot(
+            LocalTime assignmentStart,
+            LocalTime assignmentEnd,
+            LocalTime slotStart,
+            LocalTime slotEnd
+    ) {
+        int assignmentStartMin = toMinutes(assignmentStart);
+        int assignmentEndMin = toMinutes(assignmentEnd);
+
+        int slotStartMin = toMinutes(slotStart);
+        int slotEndMin = toMinutes(slotEnd);
+
+        // 排班跨日，例如 16:50~01:30
+        if (assignmentEndMin <= assignmentStartMin) {
+            assignmentEndMin += 24 * 60;
+        }
+
+        // 檢查區間如果跨日，也補上
+        if (slotEndMin <= slotStartMin) {
+            slotEndMin += 24 * 60;
+        }
+
+        return assignmentStartMin < slotEndMin
+                && assignmentEndMin > slotStartMin;
     }
     //檢查所有崗位在何時段是否缺人
     public List<String> checkGaps(LocalDate date) {
@@ -242,8 +270,12 @@ public class ScheduleAssignmentService {
                 LocalTime finalCurrent = current;
                 long assignedCount = assignments.stream()
                         .filter(assignment ->
-                                assignment.getStartTime().isBefore(next)
-                                        && assignment.getEndTime().isAfter(finalCurrent)
+                                overlapsTimeSlot(
+                                        assignment.getStartTime(),
+                                        assignment.getEndTime(),
+                                        finalCurrent,
+                                        next
+                                )
                         )
                         .count();
 
@@ -311,8 +343,12 @@ public class ScheduleAssignmentService {
                 LocalTime finalCurrent = current;
                 long assignedCount = assignments.stream()
                         .filter(assignment ->
-                                assignment.getStartTime().isBefore(next)
-                                        && assignment.getEndTime().isAfter(finalCurrent)
+                                overlapsTimeSlot(
+                                        assignment.getStartTime(),
+                                        assignment.getEndTime(),
+                                        finalCurrent,
+                                        next
+                                )
                         )
                         .count();
 
