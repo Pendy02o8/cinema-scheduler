@@ -29,7 +29,7 @@ public class ScheduleAssignment {
     private Employee employee;
 
     @ManyToOne
-    @JoinColumn(name = "position_id")
+    @JoinColumn(name = "position_id", nullable = true)
     private Position position;
 
     private LocalDate date;

@@ -111,6 +111,21 @@ public class ScheduleAssignmentService {
             throw new RuntimeException("此員工尚未設定 employeeType，不能排班");
         }
 
+        String jobTitle = employee.getJobTitle();
+
+        boolean noPositionRequired =
+                "副理".equals(jobTitle)
+                        || "會計".equals(jobTitle)
+                        || "正職清潔".equals(jobTitle)
+                        || "晚班清潔".equals(jobTitle);
+
+        if (noPositionRequired) {
+            scheduleAssignment.setPosition(null);
+        }
+
+        if (!noPositionRequired && scheduleAssignment.getPosition() == null) {
+            throw new RuntimeException("此職稱需要選擇崗位");
+        }
         return scheduleAssignmentRepository.save(scheduleAssignment);
     }
     //檢查所有崗位在何時段是否缺人
