@@ -248,6 +248,9 @@ public class ScheduleAssignmentService {
                 positionRequirementRepository.findAll();
 
         for (PositionRequirement requirement : requirements) {
+            if (Boolean.FALSE.equals(requirement.getPosition().getIsRequired())) {
+                continue;
+            }
 
             Long positionId = requirement.getPosition().getId();
 
@@ -361,16 +364,21 @@ public class ScheduleAssignmentService {
                 }
 
                 if (!isOverstaffed && overStart != null) {
-                    result.add(
-                            requirement.getPosition().getName()
-                                    + " "
-                                    + overStart
-                                    + "~"
-                                    + current
-                                    + " 超編 "
-                                    + (maxOverAssignedCount - requirement.getRequiredCount())
-                                    + " 人"
-                    );
+
+                    long overMinutes = Duration.between(overStart, current).toMinutes();
+
+                    if (overMinutes > 60) {
+                        result.add(
+                                requirement.getPosition().getName()
+                                        + " "
+                                        + overStart
+                                        + "~"
+                                        + current
+                                        + " 超編 "
+                                        + (maxOverAssignedCount - requirement.getRequiredCount())
+                                        + " 人"
+                        );
+                    }
 
                     overStart = null;
                     maxOverAssignedCount = 0;
@@ -380,16 +388,24 @@ public class ScheduleAssignmentService {
             }
 
             if (overStart != null) {
-                result.add(
-                        requirement.getPosition().getName()
-                                + " "
-                                + overStart
-                                + "~"
-                                + requirement.getEndTime()
-                                + " 超編 "
-                                + (maxOverAssignedCount - requirement.getRequiredCount())
-                                + " 人"
-                );
+
+                long overMinutes = Duration.between(
+                        overStart,
+                        requirement.getEndTime()
+                ).toMinutes();
+
+                if (overMinutes > 60) {
+                    result.add(
+                            requirement.getPosition().getName()
+                                    + " "
+                                    + overStart
+                                    + "~"
+                                    + requirement.getEndTime()
+                                    + " 超編 "
+                                    + (maxOverAssignedCount - requirement.getRequiredCount())
+                                    + " 人"
+                    );
+                }
             }
         }
 
