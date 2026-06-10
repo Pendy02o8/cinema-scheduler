@@ -189,16 +189,13 @@ public class ScheduleAssignmentService {
                 }
 
 
-                List<ScheduleAssignment> conflicts =
-                        scheduleAssignmentRepository
-                                .findByEmployee_IdAndDateAndStartTimeLessThanAndEndTimeGreaterThan(
-                                        employee.getId(),
-                                        currentDate,
-                                        assignment.getEndTime(),
-                                        assignment.getStartTime()
-                                );
+                List<ScheduleAssignment> sameDayAssignments =
+                        scheduleAssignmentRepository.findByEmployee_IdAndDate(
+                                employee.getId(),
+                                currentDate
+                        );
 
-                if (!conflicts.isEmpty()) {
+                if (!sameDayAssignments.isEmpty()) {
                     continue;
                 }
 

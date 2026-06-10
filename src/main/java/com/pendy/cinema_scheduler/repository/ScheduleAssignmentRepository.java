@@ -30,4 +30,5 @@ public interface ScheduleAssignmentRepository extends JpaRepository<ScheduleAssi
             LocalDate startDate,
             LocalDate endDate
     );
+    List<ScheduleAssignment> findByEmployee_IdAndDate(Long employeeId, LocalDate date);
 }
