@@ -3,13 +3,12 @@ package com.pendy.cinema_scheduler.service;
 import com.pendy.cinema_scheduler.entity.Availability;
 import com.pendy.cinema_scheduler.entity.Employee;
 import com.pendy.cinema_scheduler.entity.ScheduleAssignment;
-import com.pendy.cinema_scheduler.repository.AvailabilityRepository;
-import com.pendy.cinema_scheduler.repository.EmployeeRepository;
-import com.pendy.cinema_scheduler.repository.ScheduleAssignmentRepository;
+import com.pendy.cinema_scheduler.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import com.pendy.cinema_scheduler.entity.PositionRequirement;
-import com.pendy.cinema_scheduler.repository.PositionRequirementRepository;
+import com.pendy.cinema_scheduler.repository.WeeklyScheduleRepository;
+import com.pendy.cinema_scheduler.entity.WeeklySchedule;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -26,6 +25,7 @@ public class ScheduleAssignmentService {
     private final PositionRequirementRepository positionRequirementRepository;
     private final MonthlyLeaveService monthlyLeaveService;
     private final EmployeeRepository employeeRepository;
+    private final WeeklyScheduleRepository weeklyScheduleRepository;
 
     public List<ScheduleAssignment> getAllScheduleAssignments() {
         return scheduleAssignmentRepository.findAll();
@@ -127,6 +127,92 @@ public class ScheduleAssignmentService {
             throw new RuntimeException("此職稱需要選擇崗位");
         }
         return scheduleAssignmentRepository.save(scheduleAssignment);
+    }
+    //產生正職固定班
+    public List<ScheduleAssignment> generateFixedSchedule(
+            Long weeklyScheduleId,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        WeeklySchedule weeklySchedule = weeklyScheduleRepository.findById(weeklyScheduleId)
+                .orElseThrow(() -> new RuntimeException("找不到週班表 id: " + weeklyScheduleId));
+
+        List<Employee> fixedEmployees = employeeRepository.findByEmployeeTypeIn(
+                List.of("FULL_TIME", "CLEANER")
+        );
+
+        List<ScheduleAssignment> createdAssignments = new ArrayList<>();
+
+        LocalDate currentDate = startDate;
+
+        while (!currentDate.isAfter(endDate)) {
+
+            for (Employee employee : fixedEmployees) {
+
+                boolean isOnLeave = monthlyLeaveService.isEmployeeOnLeave(
+                        employee.getId(),
+                        currentDate
+                );
+
+                if (isOnLeave) {
+                    // 月休不用建立排班，前端依 monthly_leaves 顯示「休」
+                    continue;
+                }
+
+                ScheduleAssignment assignment = new ScheduleAssignment();
+
+                assignment.setWeeklySchedule(weeklySchedule);
+                assignment.setEmployee(employee);
+                assignment.setDate(currentDate);
+                assignment.setPosition(null);
+
+                if ("CLEANER".equals(employee.getEmployeeType())) {
+
+                    if ("正職清潔".equals(employee.getJobTitle())) {
+                        assignment.setStartTime(LocalTime.of(12, 50));
+                        assignment.setEndTime(LocalTime.of(22, 0));
+                    } else {
+                        continue;
+                    }
+
+                } else if ("FULL_TIME".equals(employee.getEmployeeType())) {
+
+                    if ("MORNING".equals(employee.getFixedShiftType())) {
+                        assignment.setStartTime(LocalTime.of(8, 50));
+                        assignment.setEndTime(LocalTime.of(17, 30));
+                    } else if ("EVENING".equals(employee.getFixedShiftType())) {
+                        assignment.setStartTime(LocalTime.of(16, 50));
+                        assignment.setEndTime(LocalTime.of(1, 30));
+                    } else {
+                        continue;
+                    }
+                }
+
+                assignment.setNote("固定班");
+
+                List<ScheduleAssignment> conflicts =
+                        scheduleAssignmentRepository
+                                .findByEmployee_IdAndDateAndStartTimeLessThanAndEndTimeGreaterThan(
+                                        employee.getId(),
+                                        currentDate,
+                                        assignment.getEndTime(),
+                                        assignment.getStartTime()
+                                );
+
+                if (!conflicts.isEmpty()) {
+                    continue;
+                }
+
+                ScheduleAssignment saved =
+                        scheduleAssignmentRepository.save(assignment);
+
+                createdAssignments.add(saved);
+            }
+
+            currentDate = currentDate.plusDays(1);
+        }
+
+        return createdAssignments;
     }
     //檢查所有崗位在何時段是否缺人
     public List<String> checkGaps(LocalDate date) {

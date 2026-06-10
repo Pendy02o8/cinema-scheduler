@@ -107,4 +107,16 @@ public class ScheduleAssignmentController {
                 endDate
         );
     }
+    @PostMapping("/generate-fixed")
+    public List<ScheduleAssignment> generateFixedSchedule(
+            @RequestParam Long weeklyScheduleId,
+            @RequestParam LocalDate startDate,
+            @RequestParam LocalDate endDate
+    ) {
+        return scheduleAssignmentService.generateFixedSchedule(
+                weeklyScheduleId,
+                startDate,
+                endDate
+        );
+    }
 }
