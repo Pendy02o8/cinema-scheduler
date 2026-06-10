@@ -1,8 +1,10 @@
 package com.pendy.cinema_scheduler.service;
 
 import com.pendy.cinema_scheduler.entity.Availability;
+import com.pendy.cinema_scheduler.entity.Employee;
 import com.pendy.cinema_scheduler.entity.ScheduleAssignment;
 import com.pendy.cinema_scheduler.repository.AvailabilityRepository;
+import com.pendy.cinema_scheduler.repository.EmployeeRepository;
 import com.pendy.cinema_scheduler.repository.ScheduleAssignmentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,6 +24,8 @@ public class ScheduleAssignmentService {
     private final ScheduleAssignmentRepository scheduleAssignmentRepository;
     private final AvailabilityRepository availabilityRepository;
     private final PositionRequirementRepository positionRequirementRepository;
+    private final MonthlyLeaveService monthlyLeaveService;
+    private final EmployeeRepository employeeRepository;
 
     public List<ScheduleAssignment> getAllScheduleAssignments() {
         return scheduleAssignmentRepository.findAll();
@@ -33,34 +37,80 @@ public class ScheduleAssignmentService {
     }
 
     public ScheduleAssignment createScheduleAssignment(ScheduleAssignment scheduleAssignment) {
-        //檢查排班衝突(同一位員工有無重複排班)
+
         Long employeeId = scheduleAssignment.getEmployee().getId();
 
-        List<ScheduleAssignment> conflicts = scheduleAssignmentRepository.findByEmployee_IdAndDateAndStartTimeLessThanAndEndTimeGreaterThan(
-                employeeId,scheduleAssignment.getDate(),scheduleAssignment.getEndTime(),scheduleAssignment.getStartTime());
+        // 1. 檢查同一位員工同一天同時段是否重複排班
+        List<ScheduleAssignment> conflicts =
+                scheduleAssignmentRepository
+                        .findByEmployee_IdAndDateAndStartTimeLessThanAndEndTimeGreaterThan(
+                                employeeId,
+                                scheduleAssignment.getDate(),
+                                scheduleAssignment.getEndTime(),
+                                scheduleAssignment.getStartTime()
+                        );
 
-        if(!conflicts.isEmpty()){
+        if (!conflicts.isEmpty()) {
             throw new RuntimeException("此員工在該時段已有排班，不能重複排班");
         }
 
-        //檢查排班衝突(該員工該時段是否可排班)
-        List<Availability> availabilities = availabilityRepository.findByEmployee_IdAndDate(employeeId,scheduleAssignment.getDate());
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new RuntimeException("找不到員工 id: " + employeeId));
 
-        Availability availability = availabilities.get(0);
-        if("OFF".equals(availability.getAvailabilityType())){
-            throw new RuntimeException("此員工當天休假，不能排班");
-        }
-        if("AFTER".equals(availability.getAvailabilityType())){
-            if (scheduleAssignment.getStartTime().isBefore(availability.getBoundaryTime())){
-                throw new RuntimeException("此員工只能在"+availability.getBoundaryTime()+"之後上班");
+        String employeeType = employee.getEmployeeType();
+
+        scheduleAssignment.setEmployee(employee);
+
+        // 2. 工讀生：照availability
+        if ("PART_TIME".equals(employeeType)) {
+
+            List<Availability> availabilities =
+                    availabilityRepository.findByEmployee_IdAndDate(
+                            employeeId,
+                            scheduleAssignment.getDate()
+                    );
+
+            if (availabilities.isEmpty()) {
+                throw new RuntimeException("此工讀生當天沒有填寫可上班時間，不能排班");
+            }
+
+            Availability availability = availabilities.get(0);
+
+            if ("OFF".equals(availability.getAvailabilityType())) {
+                throw new RuntimeException("此員工當天休假，不能排班");
+            }
+
+            if ("AFTER".equals(availability.getAvailabilityType())) {
+                if (scheduleAssignment.getStartTime().isBefore(availability.getBoundaryTime())) {
+                    throw new RuntimeException("此員工只能在 " + availability.getBoundaryTime() + " 之後上班");
+                }
+            }
+
+            if ("BEFORE".equals(availability.getAvailabilityType())) {
+                if (scheduleAssignment.getEndTime().isAfter(availability.getBoundaryTime())) {
+                    throw new RuntimeException("此員工只能在 " + availability.getBoundaryTime() + " 之前上班");
+                }
             }
         }
 
-        if("BEFORE".equals(availability.getAvailabilityType())){
-            if (scheduleAssignment.getEndTime().isAfter(availability.getBoundaryTime())){
-                throw new RuntimeException("此員工只能在"+availability.getBoundaryTime()+"之前上班");
+        // 3. 正職 / 清潔：不看 availability，只看 monthly_leaves
+        else if ("FULL_TIME".equals(employeeType) || "CLEANER".equals(employeeType)) {
+
+            boolean isOnLeave = monthlyLeaveService.isEmployeeOnLeave(
+                    employeeId,
+                    scheduleAssignment.getDate()
+            );
+
+            if (isOnLeave) {
+                throw new RuntimeException("此員工當天排休，不能排班");
             }
         }
+
+        // 4. 防呆：員工類型沒設定
+        else {
+            throw new RuntimeException("此員工尚未設定 employeeType，不能排班");
+        }
+
         return scheduleAssignmentRepository.save(scheduleAssignment);
     }
     //檢查所有崗位在何時段是否缺人

@@ -30,4 +30,12 @@ public class Employee {
 
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private LocalDateTime updatedAt;
+
+    @Column(name = "employee_type")
+    private String employeeType;
+    // PART_TIME, FULL_TIME, CLEANER
+
+    @Column(name = "fixed_shift_type")
+    private String fixedShiftType;
+    // MORNING, EVENING, NONE
 }
