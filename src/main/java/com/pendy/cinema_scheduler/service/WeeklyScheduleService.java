@@ -1,9 +1,11 @@
 package com.pendy.cinema_scheduler.service;
 
 import com.pendy.cinema_scheduler.entity.WeeklySchedule;
+import com.pendy.cinema_scheduler.repository.ScheduleAssignmentRepository;
 import com.pendy.cinema_scheduler.repository.WeeklyScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import jakarta.transaction.Transactional;
 
 import java.util.List;
 
@@ -12,6 +14,7 @@ import java.util.List;
 public class WeeklyScheduleService {
 
     private final WeeklyScheduleRepository weeklyScheduleRepository;
+    private final ScheduleAssignmentRepository scheduleAssignmentRepository;
 
     public List<WeeklySchedule> getAllWeeklySchedules() {
         return weeklyScheduleRepository.findAll();
@@ -38,11 +41,9 @@ public class WeeklyScheduleService {
         return weeklyScheduleRepository.save(existing);
     }
 
+    @Transactional
     public void deleteWeeklySchedule(Long id) {
-        if (!weeklyScheduleRepository.existsById(id)) {
-            throw new RuntimeException("WeeklySchedule not found with id: " + id);
-        }
-
+        scheduleAssignmentRepository.deleteByWeeklySchedule_Id(id);
         weeklyScheduleRepository.deleteById(id);
     }
 }
