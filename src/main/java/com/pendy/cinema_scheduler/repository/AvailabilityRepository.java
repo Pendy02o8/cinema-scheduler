@@ -9,6 +9,8 @@ import java.util.List;
 public interface AvailabilityRepository extends JpaRepository<Availability, Long> {
     List<Availability> findByEmployee_Id(Long employeeId);
 
+    boolean existsByEmployee_Id(Long employeeId);
+
     List<Availability> findByEmployee_IdAndDate(
             Long employeeId,
             LocalDate date

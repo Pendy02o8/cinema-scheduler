@@ -7,6 +7,9 @@ target/
 *.iml
 .DS_Store
 application.properties
+!src/main/resources/application.properties
+cinema-scheduler.db
+cinema-scheduler.db-*
 
 ### STS ###
 .apt_generated
