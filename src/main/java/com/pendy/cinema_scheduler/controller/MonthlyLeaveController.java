@@ -1,5 +1,6 @@
 package com.pendy.cinema_scheduler.controller;
 
+import com.pendy.cinema_scheduler.dto.MonthlyLeaveSummaryResponse;
 import com.pendy.cinema_scheduler.entity.MonthlyLeave;
 import com.pendy.cinema_scheduler.service.MonthlyLeaveService;
 import lombok.RequiredArgsConstructor;
@@ -41,5 +42,13 @@ public class MonthlyLeaveController {
     @DeleteMapping("/{id}")
     public void deleteMonthlyLeave(@PathVariable Long id) {
         monthlyLeaveService.deleteMonthlyLeave(id);
+    }
+
+    @GetMapping("/summary")
+    public List<MonthlyLeaveSummaryResponse> getMonthlyLeaveSummary(
+            @RequestParam int year,
+            @RequestParam int month
+    ) {
+        return monthlyLeaveService.getMonthlyLeaveSummary(year, month);
     }
 }

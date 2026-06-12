@@ -6,6 +6,10 @@ import com.pendy.cinema_scheduler.repository.EmployeeRepository;
 import com.pendy.cinema_scheduler.repository.MonthlyLeaveRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.pendy.cinema_scheduler.dto.MonthlyLeaveSummaryResponse;
+
+import java.time.YearMonth;
+import java.util.ArrayList;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -36,8 +40,8 @@ public class MonthlyLeaveService {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new RuntimeException("找不到員工 id: " + employeeId));
 
-        if ("PART_TIME".equals(employee.getEmployeeType())) {
-            throw new RuntimeException("工讀生不可使用月休功能");
+        if (!Boolean.TRUE.equals(employee.getRequiresMonthlyLeave())) {
+            throw new RuntimeException("此員工不需要使用月休功能");
         }
 
         boolean exists = monthlyLeaveRepository.existsByEmployee_IdAndLeaveDate(
@@ -54,6 +58,39 @@ public class MonthlyLeaveService {
         monthlyLeave.setUpdatedAt(LocalDateTime.now());
 
         return monthlyLeaveRepository.save(monthlyLeave);
+    }
+    //計算正職休幾天
+    public List<MonthlyLeaveSummaryResponse> getMonthlyLeaveSummary(int year, int month) {
+        YearMonth yearMonth = YearMonth.of(year, month);
+        LocalDate startDate = yearMonth.atDay(1);
+        LocalDate endDate = yearMonth.atEndOfMonth();
+
+        List<Employee> employees = employeeRepository.findByRequiresMonthlyLeaveTrueOrderBySortOrderAscIdAsc();
+
+        List<MonthlyLeaveSummaryResponse> result = new ArrayList<>();
+
+        for (Employee employee : employees) {
+            List<MonthlyLeave> leaves = monthlyLeaveRepository.findByEmployee_IdAndLeaveDateBetween(
+                    employee.getId(),
+                    startDate,
+                    endDate
+            );
+
+            List<LocalDate> leaveDates = leaves.stream()
+                    .map(MonthlyLeave::getLeaveDate)
+                    .sorted()
+                    .toList();
+
+            result.add(new MonthlyLeaveSummaryResponse(
+                    employee.getId(),
+                    employee.getName(),
+                    employee.getJobTitle(),
+                    leaveDates.size(),
+                    leaveDates
+            ));
+        }
+
+        return result;
     }
 
     public void deleteMonthlyLeave(Long id) {

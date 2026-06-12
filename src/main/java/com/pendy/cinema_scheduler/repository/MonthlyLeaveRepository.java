@@ -13,4 +13,10 @@ public interface MonthlyLeaveRepository extends JpaRepository<MonthlyLeave, Long
     List<MonthlyLeave> findByLeaveDateBetween(LocalDate startDate, LocalDate endDate);
 
     boolean existsByEmployee_IdAndLeaveDate(Long employeeId, LocalDate leaveDate);
+
+    List<MonthlyLeave> findByEmployee_IdAndLeaveDateBetween(
+            Long employeeId,
+            LocalDate startDate,
+            LocalDate endDate
+    );
 }

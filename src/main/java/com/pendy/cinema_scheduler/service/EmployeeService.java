@@ -1,9 +1,11 @@
 package com.pendy.cinema_scheduler.service;
 
+import com.pendy.cinema_scheduler.dto.EmployeeSortOrderRequest;
 import com.pendy.cinema_scheduler.entity.Employee;
 import com.pendy.cinema_scheduler.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -14,7 +16,7 @@ public class EmployeeService {
     private final EmployeeRepository employeeRepository;
 
     public List<Employee> getAllEmployees() {
-        return employeeRepository.findAll();
+        return employeeRepository.findAllByOrderBySortOrderAscIdAsc();
     }
 
     public Employee getEmplyeeById(Long id){
@@ -22,6 +24,12 @@ public class EmployeeService {
     }
 
     public Employee createEmployee(Employee employee){
+        if (employee.getRequiresPositionAssignment() == null) {
+            employee.setRequiresPositionAssignment(true);
+        }
+        if (employee.getRequiresMonthlyLeave() == null) {
+            employee.setRequiresMonthlyLeave(false);
+        }
         return employeeRepository.save(employee);
     }
 
@@ -32,8 +40,29 @@ public class EmployeeService {
         employee.setJobTitle(newEmployee.getJobTitle());
         employee.setNote(newEmployee.getNote());
         employee.setIsActive(newEmployee.getIsActive());
-
+        employee.setSortOrder(newEmployee.getSortOrder());
+        employee.setRequiresPositionAssignment(
+                newEmployee.getRequiresPositionAssignment() == null
+                        ? true
+                        : newEmployee.getRequiresPositionAssignment()
+        );
+        employee.setRequiresMonthlyLeave(
+                newEmployee.getRequiresMonthlyLeave() == null
+                        ? false
+                        : newEmployee.getRequiresMonthlyLeave()
+        );
         return employeeRepository.save(employee);
+    }
+
+    @Transactional
+    public List<Employee> updateSortOrders(List<EmployeeSortOrderRequest> requests) {
+        for (EmployeeSortOrderRequest request : requests) {
+            Employee employee = employeeRepository.findById(request.getId())
+                    .orElseThrow(() -> new RuntimeException("Employee not found: " + request.getId()));
+            employee.setSortOrder(request.getSortOrder() == null ? 9999 : request.getSortOrder());
+        }
+
+        return employeeRepository.findAllByOrderBySortOrderAscIdAsc();
     }
 
     public void deleteEmployee(Long id){

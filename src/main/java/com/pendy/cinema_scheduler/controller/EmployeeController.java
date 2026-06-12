@@ -1,5 +1,6 @@
 package com.pendy.cinema_scheduler.controller;
 
+import com.pendy.cinema_scheduler.dto.EmployeeSortOrderRequest;
 import com.pendy.cinema_scheduler.entity.Employee;
 import com.pendy.cinema_scheduler.service.EmployeeService;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,11 @@ public class EmployeeController {
     @PutMapping("/{id}")
     public Employee updateEmployee(@PathVariable Long id,@RequestBody Employee employee){
         return employeeService.updateEmployee(id,employee);
+    }
+
+    @PutMapping("/sort-order")
+    public List<Employee> updateSortOrders(@RequestBody List<EmployeeSortOrderRequest> requests) {
+        return employeeService.updateSortOrders(requests);
     }
 
     @DeleteMapping("/{id}")

@@ -38,4 +38,13 @@ public class Employee {
     @Column(name = "fixed_shift_type")
     private String fixedShiftType;
     // MORNING, EVENING, NONE
+
+    @Column(name = "sort_order")
+    private Integer sortOrder = 9999;
+
+    @Column(name = "requires_position_assignment")
+    private Boolean requiresPositionAssignment = true;
+
+    @Column(name = "requires_monthly_leave")
+    private Boolean requiresMonthlyLeave = false;
 }

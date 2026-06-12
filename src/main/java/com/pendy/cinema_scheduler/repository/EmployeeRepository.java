@@ -8,4 +8,7 @@ import java.util.List;
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     Optional<Employee> findByName(String name);
     List<Employee> findByEmployeeTypeIn(List<String> employeeTypes);
+    List<Employee> findAllByOrderBySortOrderAscIdAsc();
+    List<Employee> findByIsActiveTrueOrderBySortOrderAscIdAsc();
+    List<Employee> findByRequiresMonthlyLeaveTrueOrderBySortOrderAscIdAsc();
 }
