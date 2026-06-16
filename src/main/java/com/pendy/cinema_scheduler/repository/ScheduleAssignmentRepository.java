@@ -35,4 +35,5 @@ public interface ScheduleAssignmentRepository extends JpaRepository<ScheduleAssi
     void deleteByWeeklySchedule_Id(Long weeklyScheduleId);
 
     boolean existsByEmployee_Id(Long employeeId);
+    boolean existsByPosition_Id(Long positionId);
 }

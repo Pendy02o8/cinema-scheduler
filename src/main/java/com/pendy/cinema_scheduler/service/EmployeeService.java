@@ -46,6 +46,8 @@ public class EmployeeService {
         employee.setJobTitle(newEmployee.getJobTitle());
         employee.setNote(newEmployee.getNote());
         employee.setIsActive(newEmployee.getIsActive());
+        employee.setEmployeeType(newEmployee.getEmployeeType());
+        employee.setFixedShiftType(newEmployee.getFixedShiftType());
         employee.setSortOrder(newEmployee.getSortOrder());
         employee.setRequiresPositionAssignment(
                 newEmployee.getRequiresPositionAssignment() == null

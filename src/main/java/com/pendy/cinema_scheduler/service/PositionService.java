@@ -2,6 +2,8 @@ package com.pendy.cinema_scheduler.service;
 
 import com.pendy.cinema_scheduler.entity.Position;
 import com.pendy.cinema_scheduler.repository.PositionRepository;
+import com.pendy.cinema_scheduler.repository.PositionRequirementRepository;
+import com.pendy.cinema_scheduler.repository.ScheduleAssignmentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -13,6 +15,8 @@ import java.util.List;
 public class PositionService {
 
     private final PositionRepository positionRepository;
+    private final ScheduleAssignmentRepository scheduleAssignmentRepository;
+    private final PositionRequirementRepository positionRequirementRepository;
 
     public List<Position> getAllPositions() {
         return positionRepository.findAll();
@@ -41,6 +45,15 @@ public class PositionService {
     }
 
     public void deletePosition(Long id) {
-        positionRepository.deleteById(id);
+        Position position = positionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("找不到崗位"));
+
+        boolean hasScheduleAssignments = scheduleAssignmentRepository.existsByPosition_Id(id);
+        boolean hasPositionRequirements = positionRequirementRepository.existsByPosition_Id(id);
+
+        if (hasScheduleAssignments || hasPositionRequirements) {
+            throw new RuntimeException("此崗位已有班表或需求設定資料，無法刪除。");
+        }
+        positionRepository.delete(position);
     }
 }
