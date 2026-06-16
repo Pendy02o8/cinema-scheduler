@@ -19,4 +19,5 @@ public interface MonthlyLeaveRepository extends JpaRepository<MonthlyLeave, Long
             LocalDate startDate,
             LocalDate endDate
     );
+    boolean existsByEmployee_Id(Long employeeId);
 }

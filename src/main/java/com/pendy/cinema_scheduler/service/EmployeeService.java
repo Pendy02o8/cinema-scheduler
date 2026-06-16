@@ -2,7 +2,10 @@ package com.pendy.cinema_scheduler.service;
 
 import com.pendy.cinema_scheduler.dto.EmployeeSortOrderRequest;
 import com.pendy.cinema_scheduler.entity.Employee;
+import com.pendy.cinema_scheduler.repository.AvailabilityRepository;
 import com.pendy.cinema_scheduler.repository.EmployeeRepository;
+import com.pendy.cinema_scheduler.repository.MonthlyLeaveRepository;
+import com.pendy.cinema_scheduler.repository.ScheduleAssignmentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +17,9 @@ import java.util.List;
 public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
+    private final ScheduleAssignmentRepository scheduleAssignmentRepository;
+    private final MonthlyLeaveRepository monthlyLeaveRepository;
+    private final AvailabilityRepository availabilityRepository;
 
     public List<Employee> getAllEmployees() {
         return employeeRepository.findAllByOrderBySortOrderAscIdAsc();
@@ -65,7 +71,18 @@ public class EmployeeService {
         return employeeRepository.findAllByOrderBySortOrderAscIdAsc();
     }
 
-    public void deleteEmployee(Long id){
-        employeeRepository.deleteById(id);
+    public void deleteEmployee(Long id) {
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("找不到員工"));
+
+        boolean hasScheduleAssignments = scheduleAssignmentRepository.existsByEmployee_Id(id);
+        boolean hasMonthlyLeaves = monthlyLeaveRepository.existsByEmployee_Id(id);
+        boolean hasAvailabilities = availabilityRepository.existsByEmployee_Id(id);
+
+        if (hasScheduleAssignments || hasMonthlyLeaves || hasAvailabilities) {
+            throw new RuntimeException("此員工已有班表、假表或可上班時段資料，無法刪除。請改用停用員工。");
+        }
+
+        employeeRepository.delete(employee);
     }
 }
