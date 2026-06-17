@@ -1,18 +1,26 @@
 package com.pendy.cinema_scheduler.service;
 
+import com.pendy.cinema_scheduler.dto.MonthlyLeaveCreateRequest;
+import com.pendy.cinema_scheduler.dto.MonthlyLeaveDateResponse;
+import com.pendy.cinema_scheduler.dto.MonthlyLeaveResponse;
+import com.pendy.cinema_scheduler.dto.MonthlyLeaveStatisticsResponse;
+import com.pendy.cinema_scheduler.dto.MonthlyLeaveSummaryResponse;
+import com.pendy.cinema_scheduler.dto.MonthlyLeaveUpdateRequest;
 import com.pendy.cinema_scheduler.entity.Employee;
+import com.pendy.cinema_scheduler.entity.LeaveType;
 import com.pendy.cinema_scheduler.entity.MonthlyLeave;
 import com.pendy.cinema_scheduler.repository.EmployeeRepository;
 import com.pendy.cinema_scheduler.repository.MonthlyLeaveRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import com.pendy.cinema_scheduler.dto.MonthlyLeaveSummaryResponse;
-
-import java.time.YearMonth;
-import java.util.ArrayList;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -22,51 +30,72 @@ public class MonthlyLeaveService {
     private final MonthlyLeaveRepository monthlyLeaveRepository;
     private final EmployeeRepository employeeRepository;
 
-    public List<MonthlyLeave> getAllMonthlyLeaves() {
-        return monthlyLeaveRepository.findAll();
+    public List<MonthlyLeaveResponse> getAllMonthlyLeaves() {
+        return monthlyLeaveRepository.findAll().stream()
+                .map(MonthlyLeaveResponse::from)
+                .toList();
     }
 
-    public List<MonthlyLeave> getMonthlyLeavesByEmployeeId(Long employeeId) {
-        return monthlyLeaveRepository.findByEmployee_Id(employeeId);
+    public MonthlyLeaveResponse getMonthlyLeaveById(Long id) {
+        return MonthlyLeaveResponse.from(findMonthlyLeave(id));
     }
 
-    public List<MonthlyLeave> getMonthlyLeavesByDateRange(LocalDate startDate, LocalDate endDate) {
-        return monthlyLeaveRepository.findByLeaveDateBetween(startDate, endDate);
+    public List<MonthlyLeaveResponse> getMonthlyLeavesByEmployeeId(Long employeeId) {
+        return monthlyLeaveRepository.findByEmployee_Id(employeeId).stream()
+                .map(MonthlyLeaveResponse::from)
+                .toList();
     }
 
-    public MonthlyLeave createMonthlyLeave(MonthlyLeave monthlyLeave) {
-        Long employeeId = monthlyLeave.getEmployee().getId();
+    public List<MonthlyLeaveResponse> getMonthlyLeavesByDateRange(LocalDate startDate, LocalDate endDate) {
+        return monthlyLeaveRepository.findByLeaveDateBetween(startDate, endDate).stream()
+                .map(MonthlyLeaveResponse::from)
+                .toList();
+    }
 
-        Employee employee = employeeRepository.findById(employeeId)
-                .orElseThrow(() -> new RuntimeException("找不到員工 id: " + employeeId));
+    public MonthlyLeaveResponse createMonthlyLeave(MonthlyLeaveCreateRequest request) {
+        validateRequest(request);
+        Long employeeId = resolveEmployeeId(request.getEmployeeId());
+        Employee employee = findEmployee(employeeId);
 
-        if (!Boolean.TRUE.equals(employee.getRequiresMonthlyLeave())) {
-            throw new RuntimeException("此員工不需要使用月休功能");
-        }
+        validateEmployeeCanUseMonthlyLeave(employee);
+        validateDuplicate(employeeId, request.getLeaveDate(), null);
 
-        boolean exists = monthlyLeaveRepository.existsByEmployee_IdAndLeaveDate(
-                employeeId,
-                monthlyLeave.getLeaveDate()
-        );
+        LocalDateTime now = LocalDateTime.now();
+        MonthlyLeave monthlyLeave = new MonthlyLeave();
+        monthlyLeave.setEmployee(employee);
+        monthlyLeave.setLeaveDate(request.getLeaveDate());
+        monthlyLeave.setLeaveType(resolveLeaveType(request.getLeaveType()));
+        monthlyLeave.setNote(request.getNote());
+        monthlyLeave.setCreatedAt(now);
+        monthlyLeave.setUpdatedAt(now);
 
-        if (exists) {
-            throw new RuntimeException("該員工在這一天已經有休假記錄");
-        }
+        return MonthlyLeaveResponse.from(monthlyLeaveRepository.save(monthlyLeave));
+    }
+
+    public MonthlyLeaveResponse updateMonthlyLeave(Long id, MonthlyLeaveUpdateRequest request) {
+        validateRequest(request);
+        MonthlyLeave monthlyLeave = findMonthlyLeave(id);
+        Long employeeId = resolveEmployeeId(request.getEmployeeId());
+        Employee employee = findEmployee(employeeId);
+
+        validateEmployeeCanUseMonthlyLeave(employee);
+        validateDuplicate(employeeId, request.getLeaveDate(), id);
 
         monthlyLeave.setEmployee(employee);
-        monthlyLeave.setCreatedAt(LocalDateTime.now());
+        monthlyLeave.setLeaveDate(request.getLeaveDate());
+        monthlyLeave.setLeaveType(resolveLeaveType(request.getLeaveType()));
+        monthlyLeave.setNote(request.getNote());
         monthlyLeave.setUpdatedAt(LocalDateTime.now());
 
-        return monthlyLeaveRepository.save(monthlyLeave);
+        return MonthlyLeaveResponse.from(monthlyLeaveRepository.save(monthlyLeave));
     }
-    //計算正職休幾天
+
     public List<MonthlyLeaveSummaryResponse> getMonthlyLeaveSummary(int year, int month) {
         YearMonth yearMonth = YearMonth.of(year, month);
         LocalDate startDate = yearMonth.atDay(1);
         LocalDate endDate = yearMonth.atEndOfMonth();
 
         List<Employee> employees = employeeRepository.findByRequiresMonthlyLeaveTrueOrderBySortOrderAscIdAsc();
-
         List<MonthlyLeaveSummaryResponse> result = new ArrayList<>();
 
         for (Employee employee : employees) {
@@ -76,21 +105,53 @@ public class MonthlyLeaveService {
                     endDate
             );
 
-            List<LocalDate> leaveDates = leaves.stream()
-                    .map(MonthlyLeave::getLeaveDate)
-                    .sorted()
+            List<MonthlyLeaveDateResponse> leaveDetails = leaves.stream()
+                    .sorted(Comparator.comparing(MonthlyLeave::getLeaveDate))
+                    .map(leave -> new MonthlyLeaveDateResponse(
+                            leave.getLeaveDate(),
+                            leave.getEffectiveLeaveType()
+                    ))
                     .toList();
+
+            List<LocalDate> leaveDates = leaveDetails.stream()
+                    .map(MonthlyLeaveDateResponse::getLeaveDate)
+                    .toList();
+
+            int regularLeaveDays = countLeaves(employee.getId(), LeaveType.REGULAR_LEAVE, startDate, endDate);
+            int annualLeaveDays = countLeaves(employee.getId(), LeaveType.ANNUAL_LEAVE, startDate, endDate);
+            int totalLeaveDays = leaves.size();
 
             result.add(new MonthlyLeaveSummaryResponse(
                     employee.getId(),
                     employee.getName(),
                     employee.getJobTitle(),
-                    leaveDates.size(),
-                    leaveDates
+                    totalLeaveDays,
+                    leaveDates,
+                    regularLeaveDays,
+                    annualLeaveDays,
+                    totalLeaveDays,
+                    leaveDetails
             ));
         }
 
         return result;
+    }
+
+    public MonthlyLeaveStatisticsResponse getMonthlyLeaveStatistics(
+            Long employeeId,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        int regularLeaveDays = countLeaves(employeeId, LeaveType.REGULAR_LEAVE, startDate, endDate);
+        int annualLeaveDays = countLeaves(employeeId, LeaveType.ANNUAL_LEAVE, startDate, endDate);
+        return new MonthlyLeaveStatisticsResponse(
+                employeeId,
+                startDate,
+                endDate,
+                regularLeaveDays,
+                annualLeaveDays,
+                regularLeaveDays + annualLeaveDays
+        );
     }
 
     public void deleteMonthlyLeave(Long id) {
@@ -99,5 +160,79 @@ public class MonthlyLeaveService {
 
     public boolean isEmployeeOnLeave(Long employeeId, LocalDate date) {
         return monthlyLeaveRepository.existsByEmployee_IdAndLeaveDate(employeeId, date);
+    }
+
+    public LeaveType getLeaveType(Long employeeId, LocalDate date) {
+        return monthlyLeaveRepository.findByEmployee_IdAndLeaveDate(employeeId, date)
+                .map(MonthlyLeave::getEffectiveLeaveType)
+                .orElse(null);
+    }
+
+    private MonthlyLeave findMonthlyLeave(Long id) {
+        return monthlyLeaveRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Monthly leave not found: " + id
+                ));
+    }
+
+    private Employee findEmployee(Long employeeId) {
+        return employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Employee not found: " + employeeId
+                ));
+    }
+
+    private void validateRequest(Object request) {
+        if (request == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request body is required.");
+        }
+    }
+
+    private Long resolveEmployeeId(Long employeeId) {
+        if (employeeId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "employeeId is required.");
+        }
+        return employeeId;
+    }
+
+    private LeaveType resolveLeaveType(LeaveType leaveType) {
+        return leaveType == null ? LeaveType.REGULAR_LEAVE : leaveType;
+    }
+
+    private void validateEmployeeCanUseMonthlyLeave(Employee employee) {
+        if (!Boolean.TRUE.equals(employee.getRequiresMonthlyLeave())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Employee does not use monthly leave tracking."
+            );
+        }
+    }
+
+    private void validateDuplicate(Long employeeId, LocalDate leaveDate, Long currentId) {
+        if (leaveDate == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "leaveDate is required.");
+        }
+
+        boolean exists = currentId == null
+                ? monthlyLeaveRepository.existsByEmployee_IdAndLeaveDate(employeeId, leaveDate)
+                : monthlyLeaveRepository.existsByEmployee_IdAndLeaveDateAndIdNot(employeeId, leaveDate, currentId);
+
+        if (exists) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Monthly leave already exists for this employee and date."
+            );
+        }
+    }
+
+    private int countLeaves(Long employeeId, LeaveType leaveType, LocalDate startDate, LocalDate endDate) {
+        return monthlyLeaveRepository.countByEmployee_IdAndLeaveTypeAndLeaveDateBetween(
+                employeeId,
+                leaveType,
+                startDate,
+                endDate
+        );
     }
 }

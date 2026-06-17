@@ -24,6 +24,10 @@ public class MonthlyLeave {
     @Column(name = "leave_date")
     private LocalDate leaveDate;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "leave_type")
+    private LeaveType leaveType;
+
     private String note;
 
     @Column(name = "created_at")
@@ -31,4 +35,16 @@ public class MonthlyLeave {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @PrePersist
+    @PreUpdate
+    private void applyDefaults() {
+        if (leaveType == null) {
+            leaveType = LeaveType.REGULAR_LEAVE;
+        }
+    }
+
+    public LeaveType getEffectiveLeaveType() {
+        return leaveType == null ? LeaveType.REGULAR_LEAVE : leaveType;
+    }
 }

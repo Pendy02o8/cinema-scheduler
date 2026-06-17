@@ -19,6 +19,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
         addSortOrderColumnIfMissing();
         addRequiresPositionAssignmentColumnIfMissing();
         addRequiresMonthlyLeaveColumnIfMissing();
+        addMonthlyLeaveTypeColumnIfMissing();
 
         // initializeRequiresPositionAssignment();
         //initializeRequiresMonthlyLeave();
@@ -61,6 +62,19 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
             System.out.println("Added requires_monthly_leave column to employees table.");
         }
     }
+
+    private void addMonthlyLeaveTypeColumnIfMissing() {
+        if (!columnExists("monthly_leaves", "leave_type")) {
+            jdbcTemplate.execute("ALTER TABLE monthly_leaves ADD COLUMN leave_type TEXT DEFAULT 'REGULAR_LEAVE'");
+            System.out.println("Added leave_type column to monthly_leaves table.");
+        }
+
+        jdbcTemplate.update(
+                "UPDATE monthly_leaves SET leave_type = 'REGULAR_LEAVE' " +
+                        "WHERE leave_type IS NULL OR TRIM(leave_type) = ''"
+        );
+    }
+
     private void initializeRequiresMonthlyLeave() {
         jdbcTemplate.update("UPDATE employees SET requires_monthly_leave = 1 WHERE job_title = '會計'");
         jdbcTemplate.update("UPDATE employees SET requires_monthly_leave = 1 WHERE job_title = '主任'");

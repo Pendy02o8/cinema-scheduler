@@ -4,27 +4,20 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 import java.time.LocalDate;
-import java.util.List;
 
 @Getter
 @AllArgsConstructor
-public class MonthlyLeaveSummaryResponse {
+public class MonthlyLeaveStatisticsResponse {
 
     private Long employeeId;
 
-    private String employeeName;
+    private LocalDate startDate;
 
-    private String jobTitle;
-
-    private int leaveDays;
-
-    private List<LocalDate> leaveDates;
+    private LocalDate endDate;
 
     private int regularLeaveDays;
 
     private int annualLeaveDays;
 
     private int totalLeaveDays;
-
-    private List<MonthlyLeaveDateResponse> leaves;
 }
