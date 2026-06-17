@@ -1,15 +1,19 @@
 package com.pendy.cinema_scheduler.service;
 
 import com.pendy.cinema_scheduler.dto.ScheduleAssignmentResponse;
+import com.pendy.cinema_scheduler.dto.ScheduleValidationResponse;
 import com.pendy.cinema_scheduler.entity.Availability;
 import com.pendy.cinema_scheduler.entity.Employee;
 import com.pendy.cinema_scheduler.entity.Position;
 import com.pendy.cinema_scheduler.entity.PositionRequirement;
 import com.pendy.cinema_scheduler.entity.ScheduleAssignment;
+import com.pendy.cinema_scheduler.entity.ScheduleAssignmentChange;
+import com.pendy.cinema_scheduler.entity.WeeklySchedule;
 import com.pendy.cinema_scheduler.repository.AvailabilityRepository;
 import com.pendy.cinema_scheduler.repository.EmployeeRepository;
 import com.pendy.cinema_scheduler.repository.PositionRepository;
 import com.pendy.cinema_scheduler.repository.PositionRequirementRepository;
+import com.pendy.cinema_scheduler.repository.ScheduleAssignmentChangeRepository;
 import com.pendy.cinema_scheduler.repository.ScheduleAssignmentRepository;
 import com.pendy.cinema_scheduler.repository.WeeklyScheduleRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -60,6 +65,9 @@ class ScheduleAssignmentServiceTest {
 
     @Mock
     private PositionRepository positionRepository;
+
+    @Mock
+    private ScheduleAssignmentChangeRepository scheduleAssignmentChangeRepository;
 
     @InjectMocks
     private ScheduleAssignmentService scheduleAssignmentService;
@@ -134,7 +142,7 @@ class ScheduleAssignmentServiceTest {
     }
 
     @Test
-    void createScheduleAssignmentBlocksPartTimerWhenAvailabilityTimeDoesNotMatch() {
+    void createScheduleAssignmentWarnsPartTimerWhenAvailabilityTimeDoesNotMatch() {
         stubEmployeeLookup();
         stubNoSameDayAssignments();
         stubNoTimeOverlap();
@@ -142,15 +150,18 @@ class ScheduleAssignmentServiceTest {
         when(availabilityRepository.existsByEmployee_Id(EMPLOYEE_ID)).thenReturn(true);
         when(availabilityRepository.findByEmployee_IdAndDate(EMPLOYEE_ID, ASSIGNMENT_DATE))
                 .thenReturn(List.of(availability("AFTER", LocalTime.of(12, 0))));
+        stubSave();
 
-        assertThrows(
-                RuntimeException.class,
+        ScheduleAssignmentResponse response = assertDoesNotThrow(
                 () -> scheduleAssignmentService.createScheduleAssignment(assignment)
         );
+
+        verify(scheduleAssignmentRepository).save(assignment);
+        assertTrue(response.getWarnings().contains("該員工這個時段無法上班"));
     }
 
     @Test
-    void createScheduleAssignmentBlocksPartTimerWhenAvailabilityDateDoesNotMatch() {
+    void createScheduleAssignmentWarnsPartTimerWhenAvailabilityDateDoesNotMatch() {
         stubEmployeeLookup();
         stubNoSameDayAssignments();
         stubNoTimeOverlap();
@@ -158,11 +169,71 @@ class ScheduleAssignmentServiceTest {
         when(availabilityRepository.existsByEmployee_Id(EMPLOYEE_ID)).thenReturn(true);
         when(availabilityRepository.findByEmployee_IdAndDate(EMPLOYEE_ID, ASSIGNMENT_DATE))
                 .thenReturn(Collections.emptyList());
+        stubSave();
 
-        assertThrows(
-                RuntimeException.class,
+        ScheduleAssignmentResponse response = assertDoesNotThrow(
                 () -> scheduleAssignmentService.createScheduleAssignment(assignment)
         );
+
+        verify(scheduleAssignmentRepository).save(assignment);
+        assertTrue(response.getWarnings().contains("該員工這個時段無法上班"));
+    }
+
+    @Test
+    void createScheduleAssignmentDoesNotRecordChangeWhenWeeklyScheduleIsDraft() {
+        WeeklySchedule weeklySchedule = weeklySchedule(9L, "DRAFT");
+        assignment.setWeeklySchedule(weeklySchedule);
+        stubEmployeeLookup();
+        stubNoSameDayAssignments();
+        stubNoTimeOverlap();
+        when(availabilityRepository.count()).thenReturn(0L);
+        when(weeklyScheduleRepository.findById(9L)).thenReturn(Optional.of(weeklySchedule));
+        stubSave();
+
+        assertDoesNotThrow(() -> scheduleAssignmentService.createScheduleAssignment(assignment));
+
+        verify(scheduleAssignmentChangeRepository, never()).save(any(ScheduleAssignmentChange.class));
+    }
+
+    @Test
+    void createScheduleAssignmentRecordsChangeWhenWeeklyScheduleIsPublished() {
+        WeeklySchedule weeklySchedule = weeklySchedule(9L, "PUBLISHED");
+        assignment.setWeeklySchedule(weeklySchedule);
+        stubEmployeeLookup();
+        stubNoSameDayAssignments();
+        stubNoTimeOverlap();
+        when(availabilityRepository.count()).thenReturn(0L);
+        when(weeklyScheduleRepository.findById(9L)).thenReturn(Optional.of(weeklySchedule));
+        when(scheduleAssignmentChangeRepository.existsByWeeklySchedule_IdAndEmployee_IdAndDate(
+                9L,
+                EMPLOYEE_ID,
+                ASSIGNMENT_DATE
+        )).thenReturn(false);
+        stubSave();
+
+        assertDoesNotThrow(() -> scheduleAssignmentService.createScheduleAssignment(assignment));
+
+        verify(scheduleAssignmentChangeRepository).save(argThat(change ->
+                change.getWeeklySchedule().getId().equals(9L)
+                        && change.getEmployee().getId().equals(EMPLOYEE_ID)
+                        && change.getDate().equals(ASSIGNMENT_DATE)
+                        && "CREATED".equals(change.getChangeType())
+        ));
+    }
+
+    @Test
+    void validateScheduleAssignmentReturnsAvailabilityWarningInsteadOfThrowing() {
+        stubEmployeeLookup();
+        when(availabilityRepository.count()).thenReturn(1L);
+        when(availabilityRepository.existsByEmployee_Id(EMPLOYEE_ID)).thenReturn(true);
+        when(availabilityRepository.findByEmployee_IdAndDate(EMPLOYEE_ID, ASSIGNMENT_DATE))
+                .thenReturn(List.of(availability("BEFORE", LocalTime.of(12, 0))));
+
+        ScheduleValidationResponse response = assertDoesNotThrow(
+                () -> scheduleAssignmentService.validateScheduleAssignment(assignment)
+        );
+
+        assertTrue(response.getWarnings().contains("該員工這個時段無法上班"));
     }
 
     @Test
@@ -265,6 +336,7 @@ class ScheduleAssignmentServiceTest {
 
         when(scheduleAssignmentRepository.findById(10L))
                 .thenReturn(Optional.of(existingAssignment));
+        stubEmployeeLookup();
         when(scheduleAssignmentRepository.findByEmployee_IdAndDate(EMPLOYEE_ID, ASSIGNMENT_DATE))
                 .thenReturn(List.of(existingAssignment));
         stubSave();
@@ -321,6 +393,13 @@ class ScheduleAssignmentServiceTest {
         requirement.setStartTime(LocalTime.of(10, 0));
         requirement.setEndTime(LocalTime.of(14, 0));
         return requirement;
+    }
+
+    private WeeklySchedule weeklySchedule(Long id, String status) {
+        WeeklySchedule weeklySchedule = new WeeklySchedule();
+        weeklySchedule.setId(id);
+        weeklySchedule.setStatus(status);
+        return weeklySchedule;
     }
 
     private void stubEmployeeLookup() {

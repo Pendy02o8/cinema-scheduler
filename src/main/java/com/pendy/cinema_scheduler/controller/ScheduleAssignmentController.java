@@ -35,7 +35,7 @@ public class ScheduleAssignmentController {
     }
 
     @PutMapping("/{id}")
-    public ScheduleAssignment updateScheduleAssignment(
+    public ScheduleAssignmentResponse updateScheduleAssignment(
             @PathVariable Long id,
             @RequestBody ScheduleAssignment scheduleAssignment
     ) {

@@ -1,23 +1,18 @@
 package com.pendy.cinema_scheduler.service;
 
-import com.pendy.cinema_scheduler.entity.Availability;
-import com.pendy.cinema_scheduler.entity.Employee;
-import com.pendy.cinema_scheduler.entity.Position;
-import com.pendy.cinema_scheduler.entity.ScheduleAssignment;
+import com.pendy.cinema_scheduler.entity.*;
 import com.pendy.cinema_scheduler.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import com.pendy.cinema_scheduler.entity.PositionRequirement;
 import com.pendy.cinema_scheduler.repository.WeeklyScheduleRepository;
-import com.pendy.cinema_scheduler.entity.WeeklySchedule;
 import com.pendy.cinema_scheduler.dto.ScheduleAssignmentResponse;
 import com.pendy.cinema_scheduler.dto.ScheduleValidationResponse;
 
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -33,6 +28,7 @@ public class ScheduleAssignmentService {
     private final EmployeeRepository employeeRepository;
     private final WeeklyScheduleRepository weeklyScheduleRepository;
     private final PositionRepository positionRepository;
+    private final ScheduleAssignmentChangeRepository scheduleAssignmentChangeRepository;
 
     public List<ScheduleAssignment> getAllScheduleAssignments() {
         return scheduleAssignmentRepository.findAll();
@@ -73,12 +69,13 @@ public class ScheduleAssignmentService {
             }
         }
 
+        List<String> warnings = new ArrayList<>();
+
         // 2. 工讀生：照availability
-        String warningMessage = null;
         if (restAssignment) {
             // 「休」是特殊排班狀態，不受 availability / monthly_leaves 限制。
         } else if ("PART_TIME".equals(employeeType)) {
-            ensureAvailabilityAllowsAssignment(scheduleAssignment, employeeId);
+            addAvailabilityWarning(warnings, scheduleAssignment, employeeId);
         }
 
         // 3. 正職 / 清潔：不看 availability，只看 monthly_leaves
@@ -90,7 +87,7 @@ public class ScheduleAssignmentService {
             );
 
             if (isOnLeave) {
-                throw new RuntimeException("此員工當天排休，不能排班");
+                warnings.add("此員工當天排休，請確認是否仍要排班");
             }
         }
 
@@ -114,9 +111,11 @@ public class ScheduleAssignmentService {
         if (!noPositionRequired && scheduleAssignment.getPosition() == null) {
             throw new RuntimeException("此職稱需要選擇崗位");
         }
-        ScheduleAssignment saved = scheduleAssignmentRepository.save(scheduleAssignment);
 
-        return new ScheduleAssignmentResponse(saved, Collections.singletonList(warningMessage));
+        ScheduleAssignment saved = scheduleAssignmentRepository.save(scheduleAssignment);
+        recordChangeIfPublished(saved, "CREATED");
+
+        return new ScheduleAssignmentResponse(saved, warnings);
     }
     //檢查排班衝突警告
     public ScheduleValidationResponse validateScheduleAssignment(
@@ -133,16 +132,24 @@ public class ScheduleAssignmentService {
             return new ScheduleValidationResponse(warnings);
         }
 
-        if (!"PART_TIME".equals(employee.getEmployeeType())) {
-            return new ScheduleValidationResponse(warnings);
-        }
+        if ("PART_TIME".equals(employee.getEmployeeType())) {
+            addAvailabilityWarning(warnings, scheduleAssignment, employeeId);
+        } else if ("FULL_TIME".equals(employee.getEmployeeType()) || "CLEANER".equals(employee.getEmployeeType())) {
+            boolean isOnLeave = monthlyLeaveService.isEmployeeOnLeave(
+                    employeeId,
+                    scheduleAssignment.getDate()
+            );
 
-        ensureAvailabilityAllowsAssignment(scheduleAssignment, employeeId);
+            if (isOnLeave) {
+                warnings.add("此員工當天排休，請確認是否仍要排班");
+            }
+        }
 
         return new ScheduleValidationResponse(warnings);
     }
 
-    private void ensureAvailabilityAllowsAssignment(
+    private void addAvailabilityWarning(
+            List<String> warnings,
             ScheduleAssignment scheduleAssignment,
             Long employeeId
     ) {
@@ -154,7 +161,7 @@ public class ScheduleAssignmentService {
         );
 
         if (!available) {
-            throw new RuntimeException("此員工排班日期或時間不符合 availability，不能排班");
+            warnings.add("該員工這個時段無法上班");
         }
     }
 
@@ -326,6 +333,8 @@ public class ScheduleAssignmentService {
 
                 ScheduleAssignment saved =
                         scheduleAssignmentRepository.save(assignment);
+
+                recordChangeIfPublished(saved, "CREATED");
 
                 createdAssignments.add(saved);
             }
@@ -578,7 +587,45 @@ public class ScheduleAssignmentService {
                 + " 工時："
                 + formatHours(totalHours);
     }
+    //班表異動記錄
+    private void recordChangeIfPublished(ScheduleAssignment assignment, String changeType) {
+        if (assignment.getWeeklySchedule() == null || assignment.getWeeklySchedule().getId() == null) {
+            return;
+        }
 
+        Long weeklyScheduleId = assignment.getWeeklySchedule().getId();
+
+        WeeklySchedule weeklySchedule = weeklyScheduleRepository.findById(weeklyScheduleId)
+                .orElseThrow(() -> new RuntimeException("找不到週班表 id: " + weeklyScheduleId));
+
+        if (!"PUBLISHED".equals(weeklySchedule.getStatus())) {
+            return;
+        }
+
+        if (assignment.getEmployee() == null || assignment.getEmployee().getId() == null) {
+            return;
+        }
+
+        boolean exists = scheduleAssignmentChangeRepository
+                .existsByWeeklySchedule_IdAndEmployee_IdAndDate(
+                        weeklySchedule.getId(),
+                        assignment.getEmployee().getId(),
+                        assignment.getDate()
+                );
+
+        if (exists) {
+            return;
+        }
+
+        ScheduleAssignmentChange change = new ScheduleAssignmentChange();
+        change.setWeeklySchedule(weeklySchedule);
+        change.setEmployee(assignment.getEmployee());
+        change.setDate(assignment.getDate());
+        change.setChangeType(changeType);
+        change.setCreatedAt(LocalDateTime.now());
+
+        scheduleAssignmentChangeRepository.save(change);
+    }
     private double calculatePaidHours(ScheduleAssignment assignment) {
         if (isRestAssignment(assignment)) {
             return 0;
@@ -646,22 +693,82 @@ public class ScheduleAssignmentService {
 
         return result;
     }
-    public ScheduleAssignment updateScheduleAssignment(Long id, ScheduleAssignment newScheduleAssignment) {
+    public ScheduleAssignmentResponse updateScheduleAssignment(Long id, ScheduleAssignment newScheduleAssignment) {
         ScheduleAssignment scheduleAssignment = getScheduleAssignmentById(id);
         Long employeeId = newScheduleAssignment.getEmployee().getId();
+
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new RuntimeException("找不到員工 id: " + employeeId));
+
+        String employeeType = employee.getEmployeeType();
         boolean restAssignment = isRestAssignment(newScheduleAssignment);
 
         ensureRestDayDoesNotMixWithWork(newScheduleAssignment, employeeId, id, restAssignment);
 
+        if (!restAssignment) {
+            List<ScheduleAssignment> conflicts =
+                    scheduleAssignmentRepository
+                            .findByEmployee_IdAndDateAndStartTimeLessThanAndEndTimeGreaterThan(
+                                    employeeId,
+                                    newScheduleAssignment.getDate(),
+                                    newScheduleAssignment.getEndTime(),
+                                    newScheduleAssignment.getStartTime()
+                            )
+                            .stream()
+                            .filter(existing -> existing.getId() == null || !existing.getId().equals(id))
+                            .toList();
+
+            if (!conflicts.isEmpty()) {
+                throw new RuntimeException("此員工在該時段已有排班，不能重複排班");
+            }
+        }
+
+        List<String> warnings = new ArrayList<>();
+
+        if (!restAssignment && "PART_TIME".equals(employeeType)) {
+            addAvailabilityWarning(warnings, newScheduleAssignment, employeeId);
+        } else if (!restAssignment && ("FULL_TIME".equals(employeeType) || "CLEANER".equals(employeeType))) {
+            boolean isOnLeave = monthlyLeaveService.isEmployeeOnLeave(
+                    employeeId,
+                    newScheduleAssignment.getDate()
+            );
+
+            if (isOnLeave) {
+                warnings.add("此員工當天排休，請確認是否仍要排班");
+            }
+        } else if (!restAssignment) {
+            throw new RuntimeException("此員工尚未設定 employeeType，不能排班");
+        }
+
+        String jobTitle = employee.getJobTitle();
+
+        boolean noPositionRequired =
+                "副理".equals(jobTitle)
+                        || "會計".equals(jobTitle)
+                        || "正職清潔".equals(jobTitle)
+                        || "晚班清潔".equals(jobTitle);
+
+        if (noPositionRequired && !restAssignment) {
+            newScheduleAssignment.setPosition(null);
+        }
+
+        if (!noPositionRequired && newScheduleAssignment.getPosition() == null) {
+            throw new RuntimeException("此職稱需要選擇崗位");
+        }
+
         scheduleAssignment.setWeeklySchedule(newScheduleAssignment.getWeeklySchedule());
-        scheduleAssignment.setEmployee(newScheduleAssignment.getEmployee());
+        scheduleAssignment.setEmployee(employee);
         scheduleAssignment.setPosition(newScheduleAssignment.getPosition());
         scheduleAssignment.setDate(newScheduleAssignment.getDate());
         scheduleAssignment.setStartTime(newScheduleAssignment.getStartTime());
         scheduleAssignment.setEndTime(newScheduleAssignment.getEndTime());
         scheduleAssignment.setNote(newScheduleAssignment.getNote());
 
-        return scheduleAssignmentRepository.save(scheduleAssignment);
+        ScheduleAssignment saved = scheduleAssignmentRepository.save(scheduleAssignment);
+
+        recordChangeIfPublished(saved, "UPDATED");
+
+        return new ScheduleAssignmentResponse(saved, warnings);
     }
     //列出某日是否有缺人or超編
     public List<String> checkSchedule(LocalDate date) {
@@ -725,7 +832,12 @@ public class ScheduleAssignmentService {
     }
 
     public void deleteScheduleAssignment(Long id) {
-        scheduleAssignmentRepository.deleteById(id);
+        ScheduleAssignment scheduleAssignment = scheduleAssignmentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("找不到班表"));
+
+        recordChangeIfPublished(scheduleAssignment, "DELETED");
+
+        scheduleAssignmentRepository.delete(scheduleAssignment);
     }
 
     public List<ScheduleAssignment> getScheduleAssignmentsByDate(LocalDate date) {
