@@ -240,13 +240,11 @@ class ScheduleAssignmentServiceTest {
     void createScheduleAssignmentBlocksSameEmployeeTimeOverlap() {
         stubEmployeeLookup();
         stubNoSameDayAssignments();
-        when(scheduleAssignmentRepository
-                .findByEmployee_IdAndDateAndStartTimeLessThanAndEndTimeGreaterThan(
-                        EMPLOYEE_ID,
-                        ASSIGNMENT_DATE,
-                        assignment.getEndTime(),
-                        assignment.getStartTime()
-                ))
+        when(scheduleAssignmentRepository.findByEmployee_IdAndDateBetween(
+                EMPLOYEE_ID,
+                ASSIGNMENT_DATE.minusDays(1),
+                ASSIGNMENT_DATE.plusDays(1)
+        ))
                 .thenReturn(List.of(existingWorkAssignment()));
 
         assertThrows(
@@ -347,6 +345,99 @@ class ScheduleAssignmentServiceTest {
 
         verify(scheduleAssignmentRepository).save(existingAssignment);
     }
+    @Test
+    void createScheduleAssignmentBlocksOverlapFromPreviousDayCrossMidnightShift() {
+        assignment.setDate(LocalDate.of(2026, 6, 30));
+        assignment.setStartTime(LocalTime.of(0, 30));
+        assignment.setEndTime(LocalTime.of(4, 0));
+
+        ScheduleAssignment previousDayShift = workAssignment(
+                20L,
+                LocalDate.of(2026, 6, 29),
+                LocalTime.of(16, 50),
+                LocalTime.of(1, 30)
+        );
+
+        stubEmployeeLookup();
+        when(scheduleAssignmentRepository.findByEmployee_IdAndDate(EMPLOYEE_ID, assignment.getDate()))
+                .thenReturn(Collections.emptyList());
+        when(scheduleAssignmentRepository.findByEmployee_IdAndDateBetween(
+                EMPLOYEE_ID,
+                assignment.getDate().minusDays(1),
+                assignment.getDate().plusDays(1)
+        ))
+                .thenReturn(List.of(previousDayShift));
+
+        assertThrows(
+                RuntimeException.class,
+                () -> scheduleAssignmentService.createScheduleAssignment(assignment)
+        );
+    }
+    @Test
+    void createScheduleAssignmentAllowsNonOverlappingShiftAfterCrossMidnightShift() {
+        assignment.setDate(LocalDate.of(2026, 6, 30));
+        assignment.setStartTime(LocalTime.of(2, 0));
+        assignment.setEndTime(LocalTime.of(6, 0));
+
+        ScheduleAssignment previousDayShift = workAssignment(
+                20L,
+                LocalDate.of(2026, 6, 29),
+                LocalTime.of(16, 50),
+                LocalTime.of(1, 30)
+        );
+
+        stubEmployeeLookup();
+        when(scheduleAssignmentRepository.findByEmployee_IdAndDate(EMPLOYEE_ID, assignment.getDate()))
+                .thenReturn(Collections.emptyList());
+        when(scheduleAssignmentRepository.findByEmployee_IdAndDateBetween(
+                EMPLOYEE_ID,
+                assignment.getDate().minusDays(1),
+                assignment.getDate().plusDays(1)
+        ))
+                .thenReturn(List.of(previousDayShift));
+        when(availabilityRepository.count()).thenReturn(0L);
+        stubSave();
+
+        assertDoesNotThrow(() -> scheduleAssignmentService.createScheduleAssignment(assignment));
+
+        verify(scheduleAssignmentRepository).save(assignment);
+    }
+    @Test
+    void updateScheduleAssignmentIgnoresCurrentAssignmentWhenCheckingOverlap() {
+        ScheduleAssignment existingAssignment = workAssignment(
+                10L,
+                ASSIGNMENT_DATE,
+                LocalTime.of(16, 50),
+                LocalTime.of(1, 30)
+        );
+
+        ScheduleAssignment newAssignment = workAssignment(
+                10L,
+                ASSIGNMENT_DATE,
+                LocalTime.of(16, 50),
+                LocalTime.of(1, 30)
+        );
+
+        when(scheduleAssignmentRepository.findById(10L))
+                .thenReturn(Optional.of(existingAssignment));
+        stubEmployeeLookup();
+        when(scheduleAssignmentRepository.findByEmployee_IdAndDate(EMPLOYEE_ID, ASSIGNMENT_DATE))
+                .thenReturn(List.of(existingAssignment));
+        when(scheduleAssignmentRepository.findByEmployee_IdAndDateBetween(
+                EMPLOYEE_ID,
+                ASSIGNMENT_DATE.minusDays(1),
+                ASSIGNMENT_DATE.plusDays(1)
+        ))
+                .thenReturn(List.of(existingAssignment));
+        when(availabilityRepository.count()).thenReturn(0L);
+        stubSave();
+
+        assertDoesNotThrow(
+                () -> scheduleAssignmentService.updateScheduleAssignment(10L, newAssignment)
+        );
+
+        verify(scheduleAssignmentRepository).save(existingAssignment);
+    }
 
     private Availability availability(String availabilityType, LocalTime boundaryTime) {
         Availability availability = new Availability();
@@ -412,18 +503,32 @@ class ScheduleAssignmentServiceTest {
     }
 
     private void stubNoTimeOverlap() {
-        when(scheduleAssignmentRepository
-                .findByEmployee_IdAndDateAndStartTimeLessThanAndEndTimeGreaterThan(
-                        EMPLOYEE_ID,
-                        ASSIGNMENT_DATE,
-                        assignment.getEndTime(),
-                        assignment.getStartTime()
-                ))
+        when(scheduleAssignmentRepository.findByEmployee_IdAndDateBetween(
+                EMPLOYEE_ID,
+                assignment.getDate().minusDays(1),
+                assignment.getDate().plusDays(1)
+        ))
                 .thenReturn(Collections.emptyList());
     }
 
     private void stubSave() {
         when(scheduleAssignmentRepository.save(any(ScheduleAssignment.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    private ScheduleAssignment workAssignment(
+            Long id,
+            LocalDate date,
+            LocalTime startTime,
+            LocalTime endTime
+    ) {
+        ScheduleAssignment existingAssignment = new ScheduleAssignment();
+        existingAssignment.setId(id);
+        existingAssignment.setEmployee(employee);
+        existingAssignment.setPosition(assignment.getPosition());
+        existingAssignment.setDate(date);
+        existingAssignment.setStartTime(startTime);
+        existingAssignment.setEndTime(endTime);
+        return existingAssignment;
     }
 }

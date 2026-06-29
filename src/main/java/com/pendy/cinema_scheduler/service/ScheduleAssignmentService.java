@@ -55,18 +55,7 @@ public class ScheduleAssignmentService {
 
         // 1. 檢查同一位員工同一天同時段是否重複排班
         if (!restAssignment) {
-            List<ScheduleAssignment> conflicts =
-                    scheduleAssignmentRepository
-                            .findByEmployee_IdAndDateAndStartTimeLessThanAndEndTimeGreaterThan(
-                                    employeeId,
-                                    scheduleAssignment.getDate(),
-                                    scheduleAssignment.getEndTime(),
-                                    scheduleAssignment.getStartTime()
-                            );
-
-            if (!conflicts.isEmpty()) {
-                throw new RuntimeException("此員工在該時段已有排班，不能重複排班");
-            }
+            ensureNoEmployeeTimeOverlap(scheduleAssignment, employeeId, null);
         }
 
         List<String> warnings = new ArrayList<>();
@@ -714,21 +703,7 @@ public class ScheduleAssignmentService {
         ensureRestDayDoesNotMixWithWork(newScheduleAssignment, employeeId, id, restAssignment);
 
         if (!restAssignment) {
-            List<ScheduleAssignment> conflicts =
-                    scheduleAssignmentRepository
-                            .findByEmployee_IdAndDateAndStartTimeLessThanAndEndTimeGreaterThan(
-                                    employeeId,
-                                    newScheduleAssignment.getDate(),
-                                    newScheduleAssignment.getEndTime(),
-                                    newScheduleAssignment.getStartTime()
-                            )
-                            .stream()
-                            .filter(existing -> existing.getId() == null || !existing.getId().equals(id))
-                            .toList();
-
-            if (!conflicts.isEmpty()) {
-                throw new RuntimeException("此員工在該時段已有排班，不能重複排班");
-            }
+            ensureNoEmployeeTimeOverlap(newScheduleAssignment, employeeId, id);
         }
 
         List<String> warnings = new ArrayList<>();
@@ -858,5 +833,52 @@ public class ScheduleAssignmentService {
 
     public List<ScheduleAssignment> getScheduleAssignmentsByPositionId(Long positionId) {
         return scheduleAssignmentRepository.findByPositionId(positionId);
+    }
+
+    private LocalDateTime getStartDateTime(ScheduleAssignment assignment) {
+        return assignment.getDate().atTime(assignment.getStartTime());
+    }
+
+    private LocalDateTime getEndDateTime(ScheduleAssignment assignment) {
+        LocalDate endDate = assignment.getDate();
+
+        if (!assignment.getEndTime().isAfter(assignment.getStartTime())) {
+            endDate = endDate.plusDays(1);
+        }
+
+        return endDate.atTime(assignment.getEndTime());
+    }
+
+    private boolean overlaps(ScheduleAssignment a, ScheduleAssignment b) {
+        LocalDateTime aStart = getStartDateTime(a);
+        LocalDateTime aEnd = getEndDateTime(a);
+        LocalDateTime bStart = getStartDateTime(b);
+        LocalDateTime bEnd = getEndDateTime(b);
+
+        return aStart.isBefore(bEnd) && aEnd.isAfter(bStart);
+    }
+
+    private void ensureNoEmployeeTimeOverlap(
+            ScheduleAssignment assignment,
+            Long employeeId,
+            Long currentAssignmentId
+    ) {
+        List<ScheduleAssignment> conflicts =
+                scheduleAssignmentRepository.findByEmployee_IdAndDateBetween(
+                                employeeId,
+                                assignment.getDate().minusDays(1),
+                                assignment.getDate().plusDays(1)
+                        )
+                        .stream()
+                        .filter(existing -> currentAssignmentId == null
+                                || existing.getId() == null
+                                || !existing.getId().equals(currentAssignmentId))
+                        .filter(existing -> !isRestAssignment(existing))
+                        .filter(existing -> overlaps(existing, assignment))
+                        .toList();
+
+        if (!conflicts.isEmpty()) {
+            throw new RuntimeException("同一員工排班時間重疊");
+        }
     }
 }
