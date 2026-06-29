@@ -626,15 +626,23 @@ public class ScheduleAssignmentService {
 
         scheduleAssignmentChangeRepository.save(change);
     }
+    //工時計算檢查，避免endtime<startime出現負數
+    private long calculateMinutes(LocalTime startTime, LocalTime endTime){
+        if (startTime == null || endTime == null){
+            return 0;
+        }
+        long minutes = Duration.between(startTime,endTime).toMinutes();
+        if(minutes<=0){
+            minutes+=24*60;}
+        return minutes;
+    }
+
     private double calculatePaidHours(ScheduleAssignment assignment) {
         if (isRestAssignment(assignment)) {
             return 0;
         }
 
-        long minutes = Duration.between(
-                assignment.getStartTime(),
-                assignment.getEndTime()
-        ).toMinutes();
+        long minutes = calculateMinutes(assignment.getStartTime(),assignment.getEndTime());
 
         // 上班滿4小時，扣30分鐘休息
         if (minutes >= 240) {
