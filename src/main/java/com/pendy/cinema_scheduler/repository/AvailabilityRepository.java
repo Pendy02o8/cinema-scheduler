@@ -16,4 +16,17 @@ public interface AvailabilityRepository extends JpaRepository<Availability, Long
             LocalDate date
     );
     void deleteByWeeklySchedule_Id(Long weeklyScheduleId);
+
+    boolean existsByWeeklySchedule_Id(Long weeklyScheduleId);
+
+    boolean existsByWeeklySchedule_IdAndEmployee_Id(
+            Long weeklyScheduleId,
+            Long employeeId
+    );
+
+    List<Availability> findByWeeklySchedule_IdAndEmployee_IdAndDate(
+            Long weeklyScheduleId,
+            Long employeeId,
+            LocalDate date
+    );
 }

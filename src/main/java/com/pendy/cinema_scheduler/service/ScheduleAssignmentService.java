@@ -142,7 +142,12 @@ public class ScheduleAssignmentService {
             ScheduleAssignment scheduleAssignment,
             Long employeeId
     ) {
+        Long weeklyScheduleId = scheduleAssignment.getWeeklySchedule() == null
+                ? null
+                : scheduleAssignment.getWeeklySchedule().getId();
+
         boolean available = isEmployeeAvailable(
+                weeklyScheduleId,
                 employeeId,
                 scheduleAssignment.getDate(),
                 scheduleAssignment.getStartTime(),
@@ -155,21 +160,33 @@ public class ScheduleAssignmentService {
     }
 
     private boolean isEmployeeAvailable(
+            Long weeklyScheduleId,
             Long employeeId,
             LocalDate date,
             LocalTime startTime,
             LocalTime endTime
     ) {
-        if (availabilityRepository.count() == 0) {
+        if (weeklyScheduleId == null) {
             return true;
         }
 
-        if (!availabilityRepository.existsByEmployee_Id(employeeId)) {
+        if (!availabilityRepository.existsByWeeklySchedule_Id(weeklyScheduleId)) {
+            return true;
+        }
+
+        if (!availabilityRepository.existsByWeeklySchedule_IdAndEmployee_Id(
+                weeklyScheduleId,
+                employeeId
+        )) {
             return true;
         }
 
         List<Availability> availabilities =
-                availabilityRepository.findByEmployee_IdAndDate(employeeId, date);
+                availabilityRepository.findByWeeklySchedule_IdAndEmployee_IdAndDate(
+                        weeklyScheduleId,
+                        employeeId,
+                        date
+                );
 
         if (availabilities.isEmpty()) {
             return false;
