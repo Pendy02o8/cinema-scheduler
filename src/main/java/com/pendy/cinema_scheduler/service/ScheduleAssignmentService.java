@@ -5,6 +5,7 @@ import com.pendy.cinema_scheduler.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import com.pendy.cinema_scheduler.repository.WeeklyScheduleRepository;
+import com.pendy.cinema_scheduler.dto.ScheduleAssignmentDto;
 import com.pendy.cinema_scheduler.dto.ScheduleAssignmentResponse;
 import com.pendy.cinema_scheduler.dto.ScheduleValidationResponse;
 import org.springframework.transaction.annotation.Transactional;
@@ -117,7 +118,7 @@ public class ScheduleAssignmentService {
         ScheduleAssignment saved = scheduleAssignmentRepository.save(scheduleAssignment);
         recordChangeIfPublished(saved, "CREATED");
 
-        return new ScheduleAssignmentResponse(saved, warnings);
+        return new ScheduleAssignmentResponse(ScheduleAssignmentDto.from(saved), warnings);
     }
     //檢查排班衝突警告
     public ScheduleValidationResponse validateScheduleAssignment(
@@ -659,7 +660,7 @@ public class ScheduleAssignmentService {
 
         scheduleAssignmentChangeRepository.save(change);
     }
-    //工時計算檢查，避免endtime<startime出現負數
+    //工時計算檢查，避免endtime<startTime出現負數
     private long calculateMinutes(LocalTime startTime, LocalTime endTime){
         if (startTime == null || endTime == null){
             return 0;
@@ -809,7 +810,7 @@ public class ScheduleAssignmentService {
 
         recordChangeIfPublished(saved, "UPDATED");
 
-        return new ScheduleAssignmentResponse(saved, warnings);
+        return new ScheduleAssignmentResponse(ScheduleAssignmentDto.from(saved), warnings);
     }
     //列出某日是否有缺人or超編
     public List<String> checkSchedule(LocalDate date) {
@@ -946,9 +947,9 @@ public class ScheduleAssignmentService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request body is required.");
         }
 
-        Long employeeId = resolveEmployeeId(request);
-        Long weeklyScheduleId = resolveWeeklyScheduleId(request);
-        Long positionId = resolvePositionId(request);
+        Long employeeId = request.getEmployeeId();
+        Long weeklyScheduleId = request.getWeeklyScheduleId();
+        Long positionId = request.getPositionId();
 
         if (employeeId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "employeeId is required.");
@@ -992,41 +993,5 @@ public class ScheduleAssignmentService {
         assignment.setNote(request.getNote());
 
         return assignment;
-    }
-
-    private Long resolveEmployeeId(ScheduleAssignmentRequest request) {
-        if (request.getEmployeeId() != null) {
-            return request.getEmployeeId();
-        }
-
-        if (request.getEmployee() != null) {
-            return request.getEmployee().getId();
-        }
-
-        return null;
-    }
-
-    private Long resolveWeeklyScheduleId(ScheduleAssignmentRequest request) {
-        if (request.getWeeklyScheduleId() != null) {
-            return request.getWeeklyScheduleId();
-        }
-
-        if (request.getWeeklySchedule() != null) {
-            return request.getWeeklySchedule().getId();
-        }
-
-        return null;
-    }
-
-    private Long resolvePositionId(ScheduleAssignmentRequest request) {
-        if (request.getPositionId() != null) {
-            return request.getPositionId();
-        }
-
-        if (request.getPosition() != null) {
-            return request.getPosition().getId();
-        }
-
-        return null;
     }
 }

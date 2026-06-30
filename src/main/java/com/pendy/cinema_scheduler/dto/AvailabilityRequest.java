@@ -8,15 +8,11 @@ import java.time.LocalTime;
 
 @Getter
 @Setter
-public class ScheduleAssignmentRequest {
-
-    private Long weeklyScheduleId;
+public class AvailabilityRequest {
     private Long employeeId;
-    private Long positionId;
-
+    private Long weeklyScheduleId;
     private LocalDate date;
-    private LocalTime startTime;
-    private LocalTime endTime;
-
+    private String availabilityType;
+    private LocalTime boundaryTime;
     private String note;
 }

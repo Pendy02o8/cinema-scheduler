@@ -1,8 +1,8 @@
 package com.pendy.cinema_scheduler.controller;
 
+import com.pendy.cinema_scheduler.dto.ScheduleAssignmentDto;
 import com.pendy.cinema_scheduler.dto.ScheduleAssignmentResponse;
 import com.pendy.cinema_scheduler.dto.ScheduleValidationResponse;
-import com.pendy.cinema_scheduler.entity.ScheduleAssignment;
 import com.pendy.cinema_scheduler.service.ScheduleAssignmentService;
 import com.pendy.cinema_scheduler.dto.ScheduleAssignmentRequest;
 import lombok.RequiredArgsConstructor;
@@ -19,13 +19,16 @@ public class ScheduleAssignmentController {
     private final ScheduleAssignmentService scheduleAssignmentService;
 
     @GetMapping
-    public List<ScheduleAssignment> getAllScheduleAssignments() {
-        return scheduleAssignmentService.getAllScheduleAssignments();
+    public List<ScheduleAssignmentDto> getAllScheduleAssignments() {
+        return scheduleAssignmentService.getAllScheduleAssignments()
+                .stream()
+                .map(ScheduleAssignmentDto::from)
+                .toList();
     }
 
     @GetMapping("/{id}")
-    public ScheduleAssignment getScheduleAssignmentById(@PathVariable Long id) {
-        return scheduleAssignmentService.getScheduleAssignmentById(id);
+    public ScheduleAssignmentDto getScheduleAssignmentById(@PathVariable Long id) {
+        return ScheduleAssignmentDto.from(scheduleAssignmentService.getScheduleAssignmentById(id));
     }
 
     @PostMapping
@@ -50,18 +53,27 @@ public class ScheduleAssignmentController {
     }
 
     @GetMapping("/date/{date}")
-    public List<ScheduleAssignment> getScheduleAssignmentsByDate(@PathVariable LocalDate date) {
-        return scheduleAssignmentService.getScheduleAssignmentsByDate(date);
+    public List<ScheduleAssignmentDto> getScheduleAssignmentsByDate(@PathVariable LocalDate date) {
+        return scheduleAssignmentService.getScheduleAssignmentsByDate(date)
+                .stream()
+                .map(ScheduleAssignmentDto::from)
+                .toList();
     }
 
     @GetMapping("/employee/{employeeId}")
-    public List<ScheduleAssignment> getScheduleAssignmentsByEmployeeId(@PathVariable Long employeeId) {
-        return scheduleAssignmentService.getScheduleAssignmentsByEmployeeId(employeeId);
+    public List<ScheduleAssignmentDto> getScheduleAssignmentsByEmployeeId(@PathVariable Long employeeId) {
+        return scheduleAssignmentService.getScheduleAssignmentsByEmployeeId(employeeId)
+                .stream()
+                .map(ScheduleAssignmentDto::from)
+                .toList();
     }
 
     @GetMapping("/position/{positionId}")
-    public List<ScheduleAssignment> getScheduleAssignmentsByPositionId(@PathVariable Long positionId) {
-        return scheduleAssignmentService.getScheduleAssignmentsByPositionId(positionId);
+    public List<ScheduleAssignmentDto> getScheduleAssignmentsByPositionId(@PathVariable Long positionId) {
+        return scheduleAssignmentService.getScheduleAssignmentsByPositionId(positionId)
+                .stream()
+                .map(ScheduleAssignmentDto::from)
+                .toList();
     }
 
     @GetMapping("/check-gaps/{date}")
@@ -93,14 +105,16 @@ public class ScheduleAssignmentController {
         return scheduleAssignmentService.checkSchedule(date);
     }
     @GetMapping("/week")
-    public List<ScheduleAssignment> getScheduleAssignmentsByWeek(
+    public List<ScheduleAssignmentDto> getScheduleAssignmentsByWeek(
             @RequestParam LocalDate startDate,
             @RequestParam LocalDate endDate
     ) {
         return scheduleAssignmentService.getScheduleAssignmentsByWeek(
                 startDate,
                 endDate
-        );
+        ).stream()
+                .map(ScheduleAssignmentDto::from)
+                .toList();
     }
     @GetMapping("/check-schedule/week")
     public List<String> checkScheduleByWeek(
@@ -113,7 +127,7 @@ public class ScheduleAssignmentController {
         );
     }
     @PostMapping("/generate-fixed")
-    public List<ScheduleAssignment> generateFixedSchedule(
+    public List<ScheduleAssignmentDto> generateFixedSchedule(
             @RequestParam Long weeklyScheduleId,
             @RequestParam LocalDate startDate,
             @RequestParam LocalDate endDate
@@ -122,7 +136,9 @@ public class ScheduleAssignmentController {
                 weeklyScheduleId,
                 startDate,
                 endDate
-        );
+        ).stream()
+                .map(ScheduleAssignmentDto::from)
+                .toList();
     }
     @PostMapping("/validate")
     public ScheduleValidationResponse validateScheduleAssignment(

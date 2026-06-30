@@ -1,5 +1,6 @@
 package com.pendy.cinema_scheduler.service;
 
+import com.pendy.cinema_scheduler.dto.AvailabilityRequest;
 import com.pendy.cinema_scheduler.entity.Availability;
 import com.pendy.cinema_scheduler.repository.AvailabilityRepository;
 import com.pendy.cinema_scheduler.repository.EmployeeRepository;
@@ -40,19 +41,39 @@ public class AvailabilityService {
         return availabilityRepository.findById(id).orElseThrow(()->new RuntimeException("未提供假表"));
     }
 
-    public Availability createAvailability(Availability availability){
+    public Availability createAvailability(AvailabilityRequest request) {
+        Employee employee = employeeRepository.findById(request.getEmployeeId())
+                .orElseThrow(() -> new RuntimeException("Employee not found"));
+
+        WeeklySchedule weeklySchedule = weeklyScheduleRepository.findById(request.getWeeklyScheduleId())
+                .orElseThrow(() -> new RuntimeException("WeeklySchedule not found"));
+
+        Availability availability = new Availability();
+        availability.setEmployee(employee);
+        availability.setWeeklySchedule(weeklySchedule);
+        availability.setDate(request.getDate());
+        availability.setAvailabilityType(request.getAvailabilityType());
+        availability.setBoundaryTime(request.getBoundaryTime());
+        availability.setNote(request.getNote());
+
         return availabilityRepository.save(availability);
     }
 
-    public Availability updateAvailability(Long id,Availability newAvailability){
+    public Availability updateAvailability(Long id, AvailabilityRequest request) {
         Availability availability = getAvailabilityById(id);
 
-        availability.setEmployee(newAvailability.getEmployee());
-        availability.setWeeklySchedule(newAvailability.getWeeklySchedule());
-        availability.setDate(newAvailability.getDate());
-        availability.setAvailabilityType(newAvailability.getAvailabilityType());
-        availability.setBoundaryTime(newAvailability.getBoundaryTime());
-        availability.setNote(newAvailability.getNote());
+        Employee employee = employeeRepository.findById(request.getEmployeeId())
+                .orElseThrow(() -> new RuntimeException("Employee not found"));
+
+        WeeklySchedule weeklySchedule = weeklyScheduleRepository.findById(request.getWeeklyScheduleId())
+                .orElseThrow(() -> new RuntimeException("WeeklySchedule not found"));
+
+        availability.setEmployee(employee);
+        availability.setWeeklySchedule(weeklySchedule);
+        availability.setDate(request.getDate());
+        availability.setAvailabilityType(request.getAvailabilityType());
+        availability.setBoundaryTime(request.getBoundaryTime());
+        availability.setNote(request.getNote());
 
         return availabilityRepository.save(availability);
     }
