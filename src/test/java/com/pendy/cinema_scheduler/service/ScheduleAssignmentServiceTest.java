@@ -31,6 +31,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -240,6 +241,37 @@ class ScheduleAssignmentServiceTest {
     }
 
     @Test
+    void createScheduleAssignmentClearsPositionWhenEmployeeDoesNotRequirePositionAssignment() {
+        employee.setRequiresPositionAssignment(false);
+        stubEmployeeLookup();
+        stubNoSameDayAssignments();
+        stubNoTimeOverlap();
+        stubSave();
+
+        assertDoesNotThrow(() -> scheduleAssignmentService.createScheduleAssignment(assignment));
+
+        assertNull(assignment.getPosition());
+        verify(scheduleAssignmentRepository).save(assignment);
+    }
+
+    @Test
+    void createScheduleAssignmentRequiresPositionBasedOnEmployeeFlagNotJobTitle() {
+        employee.setJobTitle("副理");
+        employee.setRequiresPositionAssignment(true);
+        assignment.setPosition(null);
+        stubEmployeeLookup();
+        stubNoSameDayAssignments();
+        stubNoTimeOverlap();
+
+        assertThrows(
+                RuntimeException.class,
+                () -> scheduleAssignmentService.createScheduleAssignment(assignment)
+        );
+
+        verify(scheduleAssignmentRepository, never()).save(any(ScheduleAssignment.class));
+    }
+
+    @Test
     void validateScheduleAssignmentReturnsAvailabilityWarningInsteadOfThrowing() {
         assignment.setWeeklySchedule(weeklySchedule(WEEKLY_SCHEDULE_ID, "DRAFT"));
         stubEmployeeLookup();
@@ -367,6 +399,47 @@ class ScheduleAssignmentServiceTest {
 
         verify(scheduleAssignmentRepository).save(existingAssignment);
     }
+
+    @Test
+    void updateScheduleAssignmentClearsPositionWhenEmployeeDoesNotRequirePositionAssignment() {
+        employee.setRequiresPositionAssignment(false);
+
+        ScheduleAssignment existingAssignment = new ScheduleAssignment();
+        existingAssignment.setId(10L);
+        existingAssignment.setEmployee(employee);
+        existingAssignment.setPosition(assignment.getPosition());
+        existingAssignment.setDate(ASSIGNMENT_DATE);
+        existingAssignment.setStartTime(LocalTime.of(10, 0));
+        existingAssignment.setEndTime(LocalTime.of(14, 0));
+
+        ScheduleAssignment newAssignment = workAssignment(
+                10L,
+                ASSIGNMENT_DATE,
+                LocalTime.of(10, 0),
+                LocalTime.of(14, 0)
+        );
+
+        when(scheduleAssignmentRepository.findById(10L))
+                .thenReturn(Optional.of(existingAssignment));
+        stubEmployeeLookup();
+        when(scheduleAssignmentRepository.findByEmployee_IdAndDate(EMPLOYEE_ID, ASSIGNMENT_DATE))
+                .thenReturn(List.of(existingAssignment));
+        when(scheduleAssignmentRepository.findByEmployee_IdAndDateBetween(
+                EMPLOYEE_ID,
+                ASSIGNMENT_DATE.minusDays(1),
+                ASSIGNMENT_DATE.plusDays(1)
+        ))
+                .thenReturn(List.of(existingAssignment));
+        stubSave();
+
+        assertDoesNotThrow(
+                () -> scheduleAssignmentService.updateScheduleAssignment(10L, newAssignment)
+        );
+
+        assertNull(existingAssignment.getPosition());
+        verify(scheduleAssignmentRepository).save(existingAssignment);
+    }
+
     @Test
     void createScheduleAssignmentBlocksOverlapFromPreviousDayCrossMidnightShift() {
         assignment.setDate(LocalDate.of(2026, 6, 30));
