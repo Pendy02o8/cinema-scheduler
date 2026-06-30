@@ -7,6 +7,10 @@ import org.springframework.stereotype.Service;
 import com.pendy.cinema_scheduler.repository.WeeklyScheduleRepository;
 import com.pendy.cinema_scheduler.dto.ScheduleAssignmentResponse;
 import com.pendy.cinema_scheduler.dto.ScheduleValidationResponse;
+import org.springframework.transaction.annotation.Transactional;
+import com.pendy.cinema_scheduler.dto.ScheduleAssignmentRequest;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -38,13 +42,22 @@ public class ScheduleAssignmentService {
         return scheduleAssignmentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("找不到排班資料"));
     }
+    @Transactional
+    public ScheduleAssignmentResponse createScheduleAssignment(ScheduleAssignmentRequest request) {
+        return createScheduleAssignmentFromAssignment(toScheduleAssignment(request));
+    }
 
+    @Transactional
     public ScheduleAssignmentResponse createScheduleAssignment(ScheduleAssignment scheduleAssignment) {
+        return createScheduleAssignmentFromAssignment(scheduleAssignment);
+    }
+
+    private ScheduleAssignmentResponse createScheduleAssignmentFromAssignment(ScheduleAssignment scheduleAssignment) {
 
         Long employeeId = scheduleAssignment.getEmployee().getId();
 
         Employee employee = employeeRepository.findById(employeeId)
-                .orElseThrow(() -> new RuntimeException("找不到員工 id: " + employeeId));
+                .orElseThrow(() -> new RuntimeException("?曆??啣撌?id: " + employeeId));
 
         String employeeType = employee.getEmployeeType();
 
@@ -108,8 +121,21 @@ public class ScheduleAssignmentService {
     }
     //檢查排班衝突警告
     public ScheduleValidationResponse validateScheduleAssignment(
+            ScheduleAssignmentRequest request
+    ) {
+        return validateScheduleAssignmentFromAssignment(toScheduleAssignment(request));
+    }
+
+    public ScheduleValidationResponse validateScheduleAssignment(
             ScheduleAssignment scheduleAssignment
     ) {
+        return validateScheduleAssignmentFromAssignment(scheduleAssignment);
+    }
+
+    private ScheduleValidationResponse validateScheduleAssignmentFromAssignment(
+            ScheduleAssignment scheduleAssignment
+    ) {
+
         List<String> warnings = new ArrayList<>();
 
         Long employeeId = scheduleAssignment.getEmployee().getId();
@@ -267,6 +293,7 @@ public class ScheduleAssignmentService {
     }
 
     //產生正職固定班
+    @Transactional
     public List<ScheduleAssignment> generateFixedSchedule(
             Long weeklyScheduleId,
             LocalDate startDate,
@@ -707,12 +734,26 @@ public class ScheduleAssignmentService {
 
         return result;
     }
+
+    @Transactional
+    public ScheduleAssignmentResponse updateScheduleAssignment(Long id, ScheduleAssignmentRequest request) {
+        return updateScheduleAssignmentFromAssignment(id, toScheduleAssignment(request));
+    }
+
+    @Transactional
     public ScheduleAssignmentResponse updateScheduleAssignment(Long id, ScheduleAssignment newScheduleAssignment) {
+        return updateScheduleAssignmentFromAssignment(id, newScheduleAssignment);
+    }
+
+    private ScheduleAssignmentResponse updateScheduleAssignmentFromAssignment(
+            Long id,
+            ScheduleAssignment newScheduleAssignment
+    ) {
         ScheduleAssignment scheduleAssignment = getScheduleAssignmentById(id);
         Long employeeId = newScheduleAssignment.getEmployee().getId();
 
         Employee employee = employeeRepository.findById(employeeId)
-                .orElseThrow(() -> new RuntimeException("找不到員工 id: " + employeeId));
+                .orElseThrow(() -> new RuntimeException("?曆??啣撌?id: " + employeeId));
 
         String employeeType = employee.getEmployeeType();
         boolean restAssignment = isRestAssignment(newScheduleAssignment);
@@ -831,6 +872,7 @@ public class ScheduleAssignmentService {
         );
     }
 
+    @Transactional
     public void deleteScheduleAssignment(Long id) {
         ScheduleAssignment scheduleAssignment = scheduleAssignmentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("找不到班表"));
@@ -897,5 +939,94 @@ public class ScheduleAssignmentService {
         if (!conflicts.isEmpty()) {
             throw new RuntimeException("同一員工排班時間重疊");
         }
+    }
+
+    private ScheduleAssignment toScheduleAssignment(ScheduleAssignmentRequest request) {
+        if (request == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request body is required.");
+        }
+
+        Long employeeId = resolveEmployeeId(request);
+        Long weeklyScheduleId = resolveWeeklyScheduleId(request);
+        Long positionId = resolvePositionId(request);
+
+        if (employeeId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "employeeId is required.");
+        }
+
+        if (request.getDate() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "date is required.");
+        }
+
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Employee not found: " + employeeId
+                ));
+
+        WeeklySchedule weeklySchedule = null;
+        if (weeklyScheduleId != null) {
+            weeklySchedule = weeklyScheduleRepository.findById(weeklyScheduleId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "WeeklySchedule not found: " + weeklyScheduleId
+                    ));
+        }
+
+        Position position = null;
+        if (positionId != null) {
+            position = positionRepository.findById(positionId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "Position not found: " + positionId
+                    ));
+        }
+
+        ScheduleAssignment assignment = new ScheduleAssignment();
+        assignment.setWeeklySchedule(weeklySchedule);
+        assignment.setEmployee(employee);
+        assignment.setPosition(position);
+        assignment.setDate(request.getDate());
+        assignment.setStartTime(request.getStartTime());
+        assignment.setEndTime(request.getEndTime());
+        assignment.setNote(request.getNote());
+
+        return assignment;
+    }
+
+    private Long resolveEmployeeId(ScheduleAssignmentRequest request) {
+        if (request.getEmployeeId() != null) {
+            return request.getEmployeeId();
+        }
+
+        if (request.getEmployee() != null) {
+            return request.getEmployee().getId();
+        }
+
+        return null;
+    }
+
+    private Long resolveWeeklyScheduleId(ScheduleAssignmentRequest request) {
+        if (request.getWeeklyScheduleId() != null) {
+            return request.getWeeklyScheduleId();
+        }
+
+        if (request.getWeeklySchedule() != null) {
+            return request.getWeeklySchedule().getId();
+        }
+
+        return null;
+    }
+
+    private Long resolvePositionId(ScheduleAssignmentRequest request) {
+        if (request.getPositionId() != null) {
+            return request.getPositionId();
+        }
+
+        if (request.getPosition() != null) {
+            return request.getPosition().getId();
+        }
+
+        return null;
     }
 }
