@@ -1,7 +1,8 @@
 package com.pendy.cinema_scheduler.controller;
 
+import com.pendy.cinema_scheduler.dto.EmployeeRequest;
+import com.pendy.cinema_scheduler.dto.EmployeeResponse;
 import com.pendy.cinema_scheduler.dto.EmployeeSortOrderRequest;
-import com.pendy.cinema_scheduler.entity.Employee;
 import com.pendy.cinema_scheduler.service.EmployeeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -16,28 +17,37 @@ public class EmployeeController {
     private final EmployeeService employeeService;
 
     @GetMapping
-    public List<Employee> getAllEmployees() {
-        return employeeService.getAllEmployees();
+    public List<EmployeeResponse> getAllEmployees() {
+        return employeeService.getAllEmployees()
+                .stream()
+                .map(EmployeeResponse::from)
+                .toList();
     }
 
     @GetMapping("/{id}")
-    public Employee getEmployeeById(@PathVariable Long id){
-        return employeeService.getEmplyeeById(id);
+    public EmployeeResponse getEmployeeById(@PathVariable Long id){
+        return EmployeeResponse.from(employeeService.getEmplyeeById(id));
     }
 
     @PostMapping
-    public Employee createEmployee(@RequestBody Employee employee){
-        return employeeService.createEmployee(employee);
+    public EmployeeResponse createEmployee(@RequestBody EmployeeRequest request) {
+        return EmployeeResponse.from(employeeService.createEmployee(request));
     }
 
     @PutMapping("/{id}")
-    public Employee updateEmployee(@PathVariable Long id,@RequestBody Employee employee){
-        return employeeService.updateEmployee(id,employee);
+    public EmployeeResponse updateEmployee(
+            @PathVariable Long id,
+            @RequestBody EmployeeRequest request
+    ) {
+        return EmployeeResponse.from(employeeService.updateEmployee(id, request));
     }
 
     @PutMapping("/sort-order")
-    public List<Employee> updateSortOrders(@RequestBody List<EmployeeSortOrderRequest> requests) {
-        return employeeService.updateSortOrders(requests);
+    public List<EmployeeResponse> updateSortOrders(@RequestBody List<EmployeeSortOrderRequest> requests) {
+        return employeeService.updateSortOrders(requests)
+                .stream()
+                .map(EmployeeResponse::from)
+                .toList();
     }
 
     @DeleteMapping("/{id}")

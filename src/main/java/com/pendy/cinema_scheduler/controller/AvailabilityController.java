@@ -1,12 +1,12 @@
 package com.pendy.cinema_scheduler.controller;
 
-import com.pendy.cinema_scheduler.entity.Availability;
+import com.pendy.cinema_scheduler.dto.AvailabilityRequest;
+import com.pendy.cinema_scheduler.dto.AvailabilityResponse;
 import com.pendy.cinema_scheduler.service.AvailabilityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.security.PublicKey;
 import java.util.List;
 
 @RestController
@@ -17,24 +17,29 @@ public class AvailabilityController {
     private final AvailabilityService availabilityService;
 
     @GetMapping
-    public List<Availability> getAllAvailability() {
-        return availabilityService.getAllAvailability();
+    public List<AvailabilityResponse> getAllAvailability() {
+        return availabilityService.getAllAvailability()
+                .stream()
+                .map(AvailabilityResponse::from)
+                .toList();
     }
 
     @GetMapping("/{id}")
-    public Availability getAvailabilityById(@PathVariable Long id){
-        return availabilityService.getAvailabilityById(id);
+    public AvailabilityResponse getAvailabilityById(@PathVariable Long id){
+        return AvailabilityResponse.from(availabilityService.getAvailabilityById(id));
     }
 
     @PostMapping
-    public Availability createAvailability(@RequestBody Availability availability){
-        return availabilityService.createAvailability(availability);
+    public AvailabilityResponse createAvailability(@RequestBody AvailabilityRequest request) {
+        return AvailabilityResponse.from(availabilityService.createAvailability(request));
     }
 
     @PutMapping("/{id}")
-    public Availability updateAvailability(@PathVariable Long id,
-                                           @RequestBody Availability availability){
-        return availabilityService.updateAvailability(id,availability);
+    public AvailabilityResponse updateAvailability(
+            @PathVariable Long id,
+            @RequestBody AvailabilityRequest request
+    ) {
+        return AvailabilityResponse.from(availabilityService.updateAvailability(id, request));
     }
 
     @DeleteMapping("/{id}")
@@ -44,8 +49,11 @@ public class AvailabilityController {
     }
 
     @GetMapping("/employee/{employeeId}")
-    public List<Availability> getAvailabityByEmployeeId(@PathVariable Long employeeId){
-        return availabilityService.getAvailabilityByEmployeeId(employeeId);
+    public List<AvailabilityResponse> getAvailabityByEmployeeId(@PathVariable Long employeeId){
+        return availabilityService.getAvailabilityByEmployeeId(employeeId)
+                .stream()
+                .map(AvailabilityResponse::from)
+                .toList();
     }
 
     @PostMapping(value = "/import", consumes = "multipart/form-data")
