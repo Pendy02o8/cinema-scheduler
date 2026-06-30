@@ -4,6 +4,7 @@ import com.pendy.cinema_scheduler.dto.ScheduleAssignmentResponse;
 import com.pendy.cinema_scheduler.dto.ScheduleValidationResponse;
 import com.pendy.cinema_scheduler.entity.ScheduleAssignment;
 import com.pendy.cinema_scheduler.service.ScheduleAssignmentService;
+import com.pendy.cinema_scheduler.dto.ScheduleAssignmentRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,17 +30,17 @@ public class ScheduleAssignmentController {
 
     @PostMapping
     public ScheduleAssignmentResponse createScheduleAssignment(
-            @RequestBody ScheduleAssignment scheduleAssignment
+            @RequestBody ScheduleAssignmentRequest request
     ) {
-        return scheduleAssignmentService.createScheduleAssignment(scheduleAssignment);
+        return scheduleAssignmentService.createScheduleAssignment(request);
     }
 
     @PutMapping("/{id}")
     public ScheduleAssignmentResponse updateScheduleAssignment(
             @PathVariable Long id,
-            @RequestBody ScheduleAssignment scheduleAssignment
+            @RequestBody ScheduleAssignmentRequest request
     ) {
-        return scheduleAssignmentService.updateScheduleAssignment(id, scheduleAssignment);
+        return scheduleAssignmentService.updateScheduleAssignment(id, request);
     }
 
     @DeleteMapping("/{id}")
@@ -125,8 +126,8 @@ public class ScheduleAssignmentController {
     }
     @PostMapping("/validate")
     public ScheduleValidationResponse validateScheduleAssignment(
-            @RequestBody ScheduleAssignment scheduleAssignment
+            @RequestBody ScheduleAssignmentRequest request
     ) {
-        return scheduleAssignmentService.validateScheduleAssignment(scheduleAssignment);
+        return scheduleAssignmentService.validateScheduleAssignment(request);
     }
 }
