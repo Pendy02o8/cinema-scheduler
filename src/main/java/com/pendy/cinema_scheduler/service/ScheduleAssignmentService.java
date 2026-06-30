@@ -99,21 +99,7 @@ public class ScheduleAssignmentService {
             throw new RuntimeException("此員工尚未設定 employeeType，不能排班");
         }
 
-        String jobTitle = employee.getJobTitle();
-
-        boolean noPositionRequired =
-                "副理".equals(jobTitle)
-                        || "會計".equals(jobTitle)
-                        || "正職清潔".equals(jobTitle)
-                        || "晚班清潔".equals(jobTitle);
-
-        if (noPositionRequired && !restAssignment) {
-            scheduleAssignment.setPosition(null);
-        }
-
-        if (!noPositionRequired && scheduleAssignment.getPosition() == null) {
-            throw new RuntimeException("此職稱需要選擇崗位");
-        }
+        applyPositionRequirement(employee, scheduleAssignment, restAssignment);
 
         ScheduleAssignment saved = scheduleAssignmentRepository.save(scheduleAssignment);
         recordChangeIfPublished(saved, "CREATED");
@@ -291,6 +277,28 @@ public class ScheduleAssignmentService {
         return positionRepository.findById(position.getId())
                 .map(foundPosition -> REST_POSITION_NAME.equals(foundPosition.getName()))
                 .orElse(false);
+    }
+
+    private void applyPositionRequirement(
+            Employee employee,
+            ScheduleAssignment scheduleAssignment,
+            boolean restAssignment
+    ) {
+        if (restAssignment) {
+            return;
+        }
+
+        boolean requiresPositionAssignment =
+                !Boolean.FALSE.equals(employee.getRequiresPositionAssignment());
+
+        if (!requiresPositionAssignment) {
+            scheduleAssignment.setPosition(null);
+            return;
+        }
+
+        if (scheduleAssignment.getPosition() == null) {
+            throw new RuntimeException("此員工需要選擇崗位");
+        }
     }
 
     //產生正職固定班
@@ -782,21 +790,7 @@ public class ScheduleAssignmentService {
             throw new RuntimeException("此員工尚未設定 employeeType，不能排班");
         }
 
-        String jobTitle = employee.getJobTitle();
-
-        boolean noPositionRequired =
-                "副理".equals(jobTitle)
-                        || "會計".equals(jobTitle)
-                        || "正職清潔".equals(jobTitle)
-                        || "晚班清潔".equals(jobTitle);
-
-        if (noPositionRequired && !restAssignment) {
-            newScheduleAssignment.setPosition(null);
-        }
-
-        if (!noPositionRequired && newScheduleAssignment.getPosition() == null) {
-            throw new RuntimeException("此職稱需要選擇崗位");
-        }
+        applyPositionRequirement(employee, newScheduleAssignment, restAssignment);
 
         scheduleAssignment.setWeeklySchedule(newScheduleAssignment.getWeeklySchedule());
         scheduleAssignment.setEmployee(employee);
